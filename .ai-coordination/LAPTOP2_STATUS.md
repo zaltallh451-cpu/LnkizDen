@@ -14,6 +14,11 @@ Checks/results:
 - Inferred risk (not runtime-verified): a util upload can succeed at the transport layer but the process may not publish readiness within 15 seconds; the subsequent retry can send another util ELF while the first process is still initializing. The remote-send API confirms byte transfer, not exact launched PID (include/elfldr_remote.h:26-40; runtime_supervisor.cpp:201-218). Requires console/runtime validation before treating as a reproduced defect.
 - Host coverage: no runtime-supervisor/recovery tests found in source/util/tests. test_ready covers ready-marker/PID file semantics (test_ready.c:79-110); test_payload_autostart covers bootstrapper autostart policy, not daemon restart behavior (test_payload_autostart.c:125-182). Neither exercises process-name validation, busy aging, SIGKILL, :9021 recovery, util restart, or retry backoff.
 - Recommended isolated improvement: add a host-testable, side-effect-free supervisor policy seam with a fake clock and assert the existing two-check threshold, 150-second busy boundary, and 5-to-30-second capped backoff. Keep launch endpoints, retry behavior, and loader ownership unchanged; explicitly decide the CLOCK_MONOTONIC-failure policy before changing it.
+Advice:
+- Start with that deterministic host-test seam and preserve current recovery policy; it gives regression coverage without changing payload launch semantics.
+- Separately decide and test what the supervisor should do when monotonic time is unavailable. Do not silently force recovery or kill a loader on clock failure; preserve the busy guard until an explicit safe bound/policy is agreed.
+- Treat the delayed-util-readiness duplicate-launch concern as a hypothesis. Before changing retries, collect console evidence around the 15-second timeout; if confirmed, design an explicit instance/launch acknowledgement strategy and test that a retry cannot create a second util process.
+- Validate recovery on hardware with :9021 absent/present, an unresponsive private loader, a busy launch past its grace, delayed util readiness, and stack shutdown during waits. Do not interpret host policy tests as proof of PS5 ptrace/socket/process behavior.
 Risks/blockers: No implementation change made. Clock-failure handling and the inferred delayed-util-readiness duplicate-launch scenario need an owner decision/runtime evidence before any launch/retry behavior is changed.
 Next action: Laptop 1 review this read-only report; no additional code work assigned.
-Updated UTC: 2026-10-09T21:02:34Z
+Updated UTC: 2026-10-09T21:06:07Z
