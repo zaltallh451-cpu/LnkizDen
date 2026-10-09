@@ -1,15 +1,14 @@
-State: CLOSED
-Task ID: runtime-recovery-audit
-Goal: Produce an evidence-based, read-only audit of runtime recovery failure paths and test gaps, then recommend one independently testable reliability improvement.
-Why parallel: Laptop 1 is working on ShellUI runtime-health usability; this audit is limited to daemon recovery and tests and does not modify implementation.
-Owned files: Read-only: source/daemon/source/runtime_supervisor.cpp and directly related loader/ready interfaces and tests. Write only .ai-coordination/LAPTOP2_STATUS.md for the handoff.
-Files/behavior reserved for Laptop 1: source/shellui/** and Toolbox runtime-health UI; do not change daemon or shared loader behavior.
-Base commit: 75f84e4a10275a30807d7a2cd876c94c8e242c1b
-Acceptance criteria: Report at least three concrete failure-path observations with file/line evidence; state which are already covered by host tests; recommend one testable improvement with a proposed test and explain any launch/retry safety implications. Make no implementation changes.
-Validation commands: git diff --check; confirm the report distinguishes verified behavior from inferred risks.
-Stop condition: If a proposed fix changes payload launch/retry behavior, loader ownership, or requires edits outside the status handoff, stop and report the decision needed.
-Remote session or branch: ai/laptop-2/runtime-recovery-audit (read-only review; status handoff only)
-Laptop 1 branch: ai/laptop-1/runtime-health
-Created UTC: 2026-10-09T20:53:00Z
-Closed UTC: 2026-10-09T21:07:00Z
-Review result: Accepted the evidence-based handoff at commit 12d015c0600d12d00b4dbe11a471228b6a39e242. Confirmed the unchecked supervisor-thread creation result in source; Laptop 1 is adding explicit failure logging without changing loader or payload retry behavior. Clock-failure policy and the inferred duplicate-util-launch scenario remain unchanged pending runtime evidence and an owner decision.
+State: ASSIGNED
+Task ID: weather-muse-13.60
+Goal: Deliver a host-testable, privacy-conscious Open-Meteo weather client as an isolated module, plus an evidence-based audit of global PS5 UI text/theme feasibility on firmware 13.60.
+Why parallel: Laptop 1 owns the LnkizDen persona/theme UX and ShellUI integration; this task owns only the reusable weather service and firmware feasibility research.
+Branch: ai/laptop-2/weather-muse-13.60 (create from the Laptop 1 branch after this assignment commit)
+Base commit: use the assignment commit at the head of ai/laptop-1/runtime-health
+Owned implementation files: source/util/include/weather/open_meteo.hpp; source/util/source/weather/open_meteo.cpp; source/util/tests/test_weather.cpp; source/util/tests/Makefile; source/util/CMakeLists.txt (only required source/test registration); a short API attribution/privacy section in README.md if necessary; .ai-coordination/LAPTOP2_STATUS.md
+Reserved for Laptop 1: source/shellui/**; source/i18n/**; source/libonion_settings/**; Toolbox, overlay, persona copy, and ShellUI integration. Do not add any PS5 shell hooks or change loader/recovery behavior.
+Part A — Weather service: Build a small caller-driven API using the existing IHttpTransport/Ps5HttpTransport and cJSON patterns, not a new networking stack. Use Open-Meteo's public geocoding and forecast HTTPS endpoints; no API key or secrets. The caller must explicitly supply a city (no automatic IP location/GPS). Return validated city/region/country, timezone/local time, current temperature/apparent temperature, weather code, and wind data. Keep request/response limits and timeouts bounded, URL-encode city input, restrict each request to its exact API host, reject malformed JSON/missing/out-of-range fields with explicit result codes, and never log user location or full URLs. Do not persist or cache location. Include Open-Meteo attribution and document its free-tier non-commercial/rate-limit constraint; the future UI will request refresh only on user action.
+Weather tests: Use a fake IHttpTransport and inline fixtures to cover a successful city→forecast flow, URL encoding and host allowlists, empty/invalid city, transport failure, malformed/truncated/error JSON, missing fields, and bounds/type validation. Register the tests in existing host runner and utility build as needed. No live API calls in unit tests.
+Part B — Firmware feasibility: Using only public references and this checkout, answer whether user-facing text/theme changes can safely cover Sony-owned PS5 menus on 13.60 versus only LnkizDen-managed Toolbox/overlay/notifications. Cite source files/line numbers and public URLs; distinguish verified support from inference, identify relevant profile/hook surfaces and crash/compatibility risks, and recommend the least risky feasible boundary. Do not implement global system text replacement.
+Acceptance: Weather code is independently testable without ShellUI and leaves UI-owned files untouched; tests cover failure and validation paths; host build/test or clearly report toolchain blockers. Feasibility report is evidence-based and contains public links. Run git diff --check.
+Stop conditions: Do not add credentials, unbounded network operations, an implicit location-tracking path, or any unsupported Sony shell patch. If the current HTTP stack cannot safely support the client, report the blocker and make no unsafe fallback.
+Created UTC: 2026-10-10T00:22:32Z
