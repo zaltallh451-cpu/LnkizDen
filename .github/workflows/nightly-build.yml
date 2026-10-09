@@ -1,0 +1,214 @@
+# Build LnkizDen on every push to dev and publish a rolling nightly-build.
+name: nightly-build
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  nightly-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PS5_PAYLOAD_SDK: ${{ github.workspace }}/.ps5-payload-sdk
+      LLVM_CONFIG: /usr/lib/llvm-18/bin/llvm-config
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install build packages
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            autoconf \
+            automake \
+            ca-certificates \
+            clang-18 \
+            cmake \
+            curl \
+            debugedit \
+            file \
+            fakeroot \
+            git \
+            libarchive-tools \
+            libssl-dev \
+            libtool \
+            makepkg \
+            pacman-package-manager \
+            python3-venv \
+            python3-mako \
+            librsvg2-bin \
+            lld-18 \
+            llvm-18 \
+            ninja-build \
+            patch \
+            pkg-config \
+            pkgconf \
+            python3 \
+            python3-pyelftools \
+            texinfo \
+            unzip \
+            wget \
+            xz-utils
+          sudo ln -sf /usr/lib/llvm-18/bin/llvm-config /usr/local/bin/llvm-config
+
+      - name: Resolve PS5 Payload SDK release
+        id: sdk
+        run: |
+          set -euo pipefail
+          tag="$(curl -fsSL \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/ps5-payload-dev/sdk/releases/latest \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Cache PS5 Payload SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PS5_PAYLOAD_SDK }}
+          key: ps5-payload-sdk-${{ runner.os }}-${{ steps.sdk.outputs.tag }}
+
+      - name: Install PS5 Payload SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          curl -fsSL --retry 3 -o "${tmp}/sdk.zip" \
+            "https://github.com/ps5-payload-dev/sdk/releases/download/${{ steps.sdk.outputs.tag }}/ps5-payload-sdk.zip"
+          unzip -q "${tmp}/sdk.zip" -d "${tmp}/out"
+          root="$(find "${tmp}/out" -maxdepth 2 -type d -name 'ps5-payload-sdk' | head -1 || true)"
+          if [[ -z "${root}" && -x "${tmp}/out/bin/prospero-cmake" ]]; then
+            root="${tmp}/out"
+          fi
+          [[ -n "${root}" && -x "${root}/bin/prospero-cmake" ]] || {
+            echo "unexpected SDK zip layout" >&2
+            find "${tmp}/out" | head
+            exit 1
+          }
+          rm -rf "${PS5_PAYLOAD_SDK}"
+          mkdir -p "$(dirname "${PS5_PAYLOAD_SDK}")"
+          cp -a "${root}" "${PS5_PAYLOAD_SDK}"
+          rm -rf "${tmp}"
+          test -x "${PS5_PAYLOAD_SDK}/bin/prospero-cmake"
+
+      - name: Cache kstuff.elf
+        uses: actions/cache@v4
+        with:
+          path: .cache/dependencies
+          key: kstuff-${{ hashFiles('scripts/sync_dependencies.sh') }}
+
+      - name: Install host Keystone
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/keystone-venv"
+          prefix="${RUNNER_TEMP}/keystone-prefix"
+          python3 -m venv "${venv}"
+          "${venv}/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --no-deps \
+            --only-binary=:all: \
+            --require-hashes \
+            "keystone-engine==0.9.2 --hash=sha256:5a5316a34323620b1bba31dcfe9e4b4ca6f0c030e82fc7a151da7c8fbe81a379"
+          mkdir -p "${prefix}/lib"
+          library="$("${venv}/bin/python" -c 'import keystone, pathlib; print(pathlib.Path(keystone.__file__).parent / "libkeystone.so")')"
+          install -m 0644 "${library}" "${prefix}/lib/libkeystone.so"
+          ln -s libkeystone.so "${prefix}/lib/libkeystone.so.0"
+          echo "KEYSTONE_PREFIX=${prefix}" >> "${GITHUB_ENV}"
+
+      - name: Build PS5 libcurl dependencies
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "${tmp}"' EXIT
+          git clone --depth 1 https://github.com/ps5-payload-dev/pacbrew-repo.git "${tmp}/pacbrew-repo"
+          export PS5_PAYLOAD_SDK LLVM_CONFIG
+          export PATH="/usr/lib/llvm-18/bin:${PS5_PAYLOAD_SDK}/bin:${PATH}"
+          export MAKEFLAGS="-j2"
+          for package in zlib openssl libpsl curl zstd; do
+            (cd "${tmp}/pacbrew-repo/${package}" && makepkg --nodeps --noconfirm --clean --force)
+            package_file="$(find "${tmp}/pacbrew-repo/${package}" -maxdepth 1 -type f -name '*.pkg.tar.*' -print -quit)"
+            test -n "${package_file}"
+            sudo pacman --config "${tmp}/pacbrew-repo/pacman.conf" \
+              --noconfirm --nodeps -U "${package_file}"
+          done
+          test -f "${PS5_PAYLOAD_SDK}/target/user/homebrew/lib/libcurl.a"
+          test -f "${PS5_PAYLOAD_SDK}/target/user/homebrew/etc/ca-bundle.crt"
+
+      - name: Build LnkizDen
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/llvm-18/bin:${PS5_PAYLOAD_SDK}/bin:${PATH}"
+          export LLVM_CONFIG="${LLVM_CONFIG}"
+          export PS5_PAYLOAD_SDK="${PS5_PAYLOAD_SDK}"
+          LD_LIBRARY_PATH="${KEYSTONE_PREFIX}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
+            make -j2 -C source/util/tests test KEYSTONE_PREFIX="${KEYSTONE_PREFIX}"
+          ./scripts/build.sh --release --jobs "$(nproc)"
+
+      - name: Stage nightly-build
+        run: |
+          set -euo pipefail
+          test -f build/bin/LnkizDen.elf
+          rm -rf dist
+          mkdir -p dist
+          cp -f build/bin/LnkizDen.elf dist/LnkizDen.elf
+          {
+            echo "name=nightly-build"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "commit=${GITHUB_SHA}"
+            echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "build_type=Release"
+            echo "ps5_payload_sdk=${{ steps.sdk.outputs.tag }}"
+            echo "clang=$(clang-18 --version | head -n 1)"
+            echo "cmake=$(cmake --version | head -n 1)"
+            echo "kstuff_sha256=$(sha256sum .cache/dependencies/kstuff.elf | awk '{print $1}')"
+          } > dist/BUILD_INFO.txt
+          (cd dist && sha256sum LnkizDen.elf BUILD_INFO.txt > SHA256SUMS)
+
+      - name: Upload nightly-build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-build
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish rolling nightly-build release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ github.token }}
+          tag: nightly
+          name: nightly-build
+          commit: ${{ github.sha }}
+          allowUpdates: true
+          replacesArtifacts: true
+          removeArtifacts: true
+          prerelease: true
+          makeLatest: false
+          artifacts: dist/LnkizDen.elf,dist/BUILD_INFO.txt,dist/SHA256SUMS
+          body: |
+            Rolling **nightly-build** from `dev`.
+
+            - Branch: `${{ github.ref_name }}`
+            - Commit: `${{ github.sha }}`
+            - Build type: Release
+            - PS5 Payload SDK: `${{ steps.sdk.outputs.tag }}`
+
+            Download `LnkizDen.elf`. This is not a tagged stable release.

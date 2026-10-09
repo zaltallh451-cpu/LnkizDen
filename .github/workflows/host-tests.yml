@@ -1,0 +1,57 @@
+name: host-tests
+
+on:
+  pull_request:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: host-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install host test dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            python3 \
+            python3-venv
+
+      - name: Install Keystone
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/keystone-venv"
+          prefix="${RUNNER_TEMP}/keystone-prefix"
+          python3 -m venv "${venv}"
+          "${venv}/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --no-deps \
+            --only-binary=:all: \
+            --require-hashes \
+            "keystone-engine==0.9.2 --hash=sha256:5a5316a34323620b1bba31dcfe9e4b4ca6f0c030e82fc7a151da7c8fbe81a379"
+          mkdir -p "${prefix}/lib"
+          library="$("${venv}/bin/python" -c 'import keystone, pathlib; print(pathlib.Path(keystone.__file__).parent / "libkeystone.so")')"
+          install -m 0644 "${library}" "${prefix}/lib/libkeystone.so"
+          ln -s libkeystone.so "${prefix}/lib/libkeystone.so.0"
+          echo "KEYSTONE_PREFIX=${prefix}" >> "${GITHUB_ENV}"
+
+      - name: Run host regression suite
+        run: |
+          set -euo pipefail
+          LD_LIBRARY_PATH="${KEYSTONE_PREFIX}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
+            make -j2 -C source/util/tests test KEYSTONE_PREFIX="${KEYSTONE_PREFIX}"
