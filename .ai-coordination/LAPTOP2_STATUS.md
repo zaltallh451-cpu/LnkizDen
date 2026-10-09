@@ -4,9 +4,9 @@ Goal: Read-only audit of daemon runtime recovery failure paths and host-test gap
 Branch/worktree: ai/laptop-2/runtime-recovery-audit / C:\Users\HP\Music\LnkizDen-laptop2-runtime-recovery-audit
 Base commit: 75f84e4a10275a30807d7a2cd876c94c8e242c1b
 Owned files: Read-only audit scope; write only this status handoff.
-Latest commit: 75f84e4a10275a30807d7a2cd876c94c8e242c1b (handoff pending commit)
+Latest commit: 16ce305a875cf49b3c97807578e2fde4389c99dd (audit handoff)
 Last fetched default-branch head: 75f84e4a10275a30807d7a2cd876c94c8e242c1b
-Last pushed UTC: NONE
+Last pushed UTC: 2026-10-09T21:02:34Z
 Checks/results:
 - Audited source/daemon/source/runtime_supervisor.cpp, daemon startup/shutdown, private-loader contract, readiness code, and host tests.
 - Failure paths (verified): supervisor pthread_create return is ignored (source/daemon/source/main.cpp:173-174), so thread creation failure leaves no runtime recovery worker and is not reported. Private-loader outage recovery waits for two failed health checks, defers for a matching busy marker until the 150-second grace expires, then may SIGKILL the recorded loader; it needs external :9021, and failed launch/readiness attempts back off from 5 seconds to a 30-second cap (runtime_supervisor.cpp:42-48, 152-193, 246-303). Util recovery clears its ready marker, uploads through :9020, waits up to 15 seconds for a PID marker plus expected process name, and retries on failure (runtime_supervisor.cpp:201-218, 324-331).
@@ -16,4 +16,4 @@ Checks/results:
 - Recommended isolated improvement: add a host-testable, side-effect-free supervisor policy seam with a fake clock and assert the existing two-check threshold, 150-second busy boundary, and 5-to-30-second capped backoff. Keep launch endpoints, retry behavior, and loader ownership unchanged; explicitly decide the CLOCK_MONOTONIC-failure policy before changing it.
 Risks/blockers: No implementation change made. Clock-failure handling and the inferred delayed-util-readiness duplicate-launch scenario need an owner decision/runtime evidence before any launch/retry behavior is changed.
 Next action: Laptop 1 review this read-only report; no additional code work assigned.
-Updated UTC: 2026-10-09T20:59:00Z
+Updated UTC: 2026-10-09T21:02:34Z
