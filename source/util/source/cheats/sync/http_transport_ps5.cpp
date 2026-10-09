@@ -3,9 +3,11 @@
 #include <onion/log.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <string_view>
 
 #if !defined(ONION_HOST_TEST)
 #include <curl/curl.h>
@@ -43,31 +45,118 @@ const char *scheme_host(const char *url) {
   return nullptr;
 }
 
-bool host_allowed(const char *url, const char *allow) {
-  const char *host = scheme_host(url);
-  if (!host) {
+bool valid_hostname(std::string_view host) {
+  if (host.empty() || host.front() == '.' || host.back() == '.') {
+    return false;
+  }
+  bool previous_dot = false;
+  bool label_starts_with_hyphen = false;
+  for (size_t i = 0; i < host.size(); ++i) {
+    const unsigned char ch = static_cast<unsigned char>(host[i]);
+    if (ch == '.') {
+      if (previous_dot || label_starts_with_hyphen || host[i - 1] == '-') {
+        return false;
+      }
+      previous_dot = true;
+      label_starts_with_hyphen = false;
+    } else {
+      const bool is_ascii_alnum =
+          (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+          (ch >= '0' && ch <= '9');
+      if (!is_ascii_alnum && ch != '-') {
+        return false;
+      }
+      if (!previous_dot && i == 0) {
+        label_starts_with_hyphen = ch == '-';
+      } else if (previous_dot) {
+        label_starts_with_hyphen = ch == '-';
+      }
+      previous_dot = false;
+    }
+  }
+  return !label_starts_with_hyphen && host.back() != '-';
+}
+
+char ascii_lower(char ch) {
+  const unsigned char value = static_cast<unsigned char>(ch);
+  return static_cast<char>(std::tolower(value));
+}
+
+bool equal_ascii_case_insensitive(std::string_view lhs,
+                                  std::string_view rhs) {
+  return lhs.size() == rhs.size() &&
+         std::equal(lhs.begin(), lhs.end(), rhs.begin(),
+                    [](char a, char b) {
+                      return ascii_lower(a) == ascii_lower(b);
+                    });
+}
+
+bool extract_url_host(const char *url, std::string_view &host_out) {
+  const char *authority = scheme_host(url);
+  if (!authority || !authority[0]) {
+    return false;
+  }
+
+  const std::string_view remainder(authority);
+  const size_t authority_end = remainder.find_first_of("/?#");
+  const std::string_view authority_view =
+      remainder.substr(0, authority_end);
+  if (authority_view.empty() ||
+      authority_view.find('@') != std::string_view::npos) {
+    return false;
+  }
+
+  const size_t port_pos = authority_view.find(':');
+  const std::string_view host =
+      authority_view.substr(0, port_pos);
+  if (!valid_hostname(host)) {
+    return false;
+  }
+  if (port_pos != std::string_view::npos) {
+    const std::string_view port = authority_view.substr(port_pos + 1);
+    if (port.empty()) {
+      return false;
+    }
+    unsigned int port_number = 0;
+    for (unsigned char ch : port) {
+      if (!std::isdigit(ch)) {
+        return false;
+      }
+      port_number = port_number * 10 + static_cast<unsigned int>(ch - '0');
+      if (port_number > 65535) {
+        return false;
+      }
+    }
+    if (port_number == 0) {
+      return false;
+    }
+  }
+  host_out = host;
+  return true;
+}
+
+bool host_allowed(const char *url, const char *allow, bool exact_match) {
+  std::string_view host;
+  if (!extract_url_host(url, host)) {
     return false;
   }
   if (!allow || !allow[0]) {
+    return !exact_match;
+  }
+
+  const std::string_view allowed(allow);
+  if (!valid_hostname(allowed)) {
+    return false;
+  }
+  if (equal_ascii_case_insensitive(host, allowed)) {
     return true;
   }
-  const char *slash = std::strchr(host, '/');
-  const char *colon = std::strchr(host, ':');
-  size_t host_len = std::strlen(host);
-  if (colon && (!slash || colon < slash)) {
-    host_len = static_cast<size_t>(colon - host);
-  } else if (slash) {
-    host_len = static_cast<size_t>(slash - host);
+  if (exact_match || host.size() <= allowed.size() + 1) {
+    return false;
   }
-  const size_t allow_len = std::strlen(allow);
-  if (host_len == allow_len && std::strncmp(host, allow, allow_len) == 0) {
-    return true;
-  }
-  if (host_len > allow_len + 1 && host[host_len - allow_len - 1] == '.' &&
-      std::strncmp(host + host_len - allow_len, allow, allow_len) == 0) {
-    return true;
-  }
-  return false;
+  const size_t suffix_start = host.size() - allowed.size();
+  return host[suffix_start - 1] == '.' &&
+         equal_ascii_case_insensitive(host.substr(suffix_start), allowed);
 }
 
 #if !defined(ONION_HOST_TEST)
@@ -154,35 +243,6 @@ extern "C" size_t onion_curl_write(char *ptr, size_t size, size_t nmemb,
   return n;
 }
 
-extern "C" int onion_curl_debug(CURL *, curl_infotype type, char *data,
-                                size_t size, void *) {
-  const char *kind = nullptr;
-  switch (type) {
-  case CURLINFO_TEXT:
-    kind = "text";
-    break;
-  case CURLINFO_HEADER_IN:
-    kind = "hdr-in";
-    break;
-  case CURLINFO_HEADER_OUT:
-    kind = "hdr-out";
-    break;
-  default:
-    return 0;
-  }
-  while (size > 0 && (data[size - 1] == '\n' || data[size - 1] == '\r')) {
-    --size;
-  }
-  if (size == 0) {
-    return 0;
-  }
-  if (size > 240) {
-    size = 240;
-  }
-  LOG_DEBUG("curl %s %.*s", kind, static_cast<int>(size), data);
-  return 0;
-}
-
 bool ensure_curl() {
   static int state = 0;
   if (state != 0) {
@@ -217,14 +277,13 @@ SyncStatus Ps5HttpTransport::perform(
     const std::function<SyncStatus(const void *, size_t)> &on_data) {
   const char *url = req.url ? req.url : "";
   const char *method = req.method ? req.method : "GET";
-  const char *allow = req.host_allow ? req.host_allow : "";
-  LOG_DEBUG("http perform method=%s url=%s host_allow=%s timeout_ms=%d "
-            "status=%d-%d",
-            method, url, allow, req.timeout_ms, req.status_min,
-            req.status_max);
+  LOG_DEBUG("http perform timeout_ms=%d status=%d-%d exact_host=%d "
+            "follow_redirects=%d",
+            req.timeout_ms, req.status_min, req.status_max,
+            req.exact_host_match ? 1 : 0, req.follow_redirects ? 1 : 0);
 
-  if (!host_allowed(req.url, req.host_allow)) {
-    LOG_ERROR("http url rejected url=%s host_allow=%s", url, allow);
+  if (!host_allowed(req.url, req.host_allow, req.exact_host_match)) {
+    LOG_ERROR("http request rejected: invalid scheme, host, or host policy");
     return SyncStatus::Rejected;
   }
 #if defined(ONION_HOST_TEST)
@@ -253,7 +312,8 @@ SyncStatus Ps5HttpTransport::perform(
   curl_easy_setopt(curl, CURLOPT_USERAGENT,
                    req.user_agent && req.user_agent[0] ? req.user_agent
                                                        : "LnkizDen");
-  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION,
+                   http_request_follows_redirects(req) ? 1L : 0L);
   curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 3L);
   curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
   const size_t ca_bundle_size = static_cast<size_t>(
@@ -300,20 +360,13 @@ SyncStatus Ps5HttpTransport::perform(
   if (headers) {
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
   }
-  if (onion_log_runtime_level >= ONION_LOG_DEBUG) {
-    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-    curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, onion_curl_debug);
-  }
-
   const CURLcode rc = curl_easy_perform(curl);
   long http_code = 0;
-  char *primary_ip = nullptr;
   double namelookup = 0;
   double connect = 0;
   double total = 0;
   long ssl_verify = 0;
   curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-  curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP, &primary_ip);
   curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &namelookup);
   curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connect);
   curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &total);
@@ -321,11 +374,10 @@ SyncStatus Ps5HttpTransport::perform(
     curl_easy_getinfo(curl, CURLINFO_SSL_VERIFYRESULT, &ssl_verify);
   }
 
-  LOG_DEBUG("http result url=%s curl=%s(%d) http=%ld ip=%s dns=%.3fs "
+  LOG_DEBUG("http result curl=%s(%d) http=%ld dns=%.3fs "
             "connect=%.3fs total=%.3fs bytes=%zu xfer=%s",
-            url, curl_easy_strerror(rc), static_cast<int>(rc), http_code,
-            primary_ip && primary_ip[0] ? primary_ip : "-", namelookup,
-            connect, total, xfer.bytes, sync_status_name(xfer.st));
+            curl_easy_strerror(rc), static_cast<int>(rc), http_code,
+            namelookup, connect, total, xfer.bytes, sync_status_name(xfer.st));
 
   if (headers) {
     curl_slist_free_all(headers);
@@ -337,7 +389,7 @@ SyncStatus Ps5HttpTransport::perform(
   }
   if (rc != CURLE_OK) {
     if (rc == CURLE_PEER_FAILED_VERIFICATION) {
-      LOG_ERROR("http tls verify failed verify=%ld url=%s", ssl_verify, url);
+      LOG_ERROR("http tls verify failed verify=%ld", ssl_verify);
       if (ssl_verify == kX509CertNotYetValid ||
           ssl_verify == kX509CertHasExpired) {
         return SyncStatus::Clock;
@@ -349,8 +401,8 @@ SyncStatus Ps5HttpTransport::perform(
   const int min_code = req.status_min > 0 ? req.status_min : 200;
   const int max_code = req.status_max > 0 ? req.status_max : 299;
   if (http_code < min_code || http_code > max_code) {
-    LOG_ERROR("http status out of range code=%ld want=%d-%d url=%s", http_code,
-              min_code, max_code, url);
+    LOG_ERROR("http status out of range code=%ld want=%d-%d", http_code,
+              min_code, max_code);
     return SyncStatus::Network;
   }
   return SyncStatus::Ok;

@@ -253,6 +253,20 @@ Cheats load from disk. If a file changes, LnkizDen reloads it without restarting
 
 <br>
 
+### Weather data
+
+The weather service uses Open-Meteo geocoding and forecast data. Attribute the
+provider as **Weather data by [Open-Meteo](https://open-meteo.com/)**. Its free
+API tier is for non-commercial use and is subject to rate limits (currently
+fewer than 10,000 calls/day, 5,000/hour, and 600/minute). Data use is subject
+to CC BY 4.0 attribution requirements. Review the
+[terms](https://open-meteo.com/en/terms) before deployment, especially for
+commercial use. Weather lookups require a caller-supplied city; do not infer
+location or persist/cache the city or coordinates. Any future UI refresh should
+be explicitly user-triggered.
+
+<br>
+
 # Build
 
 ### Dependencies
