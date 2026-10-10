@@ -466,6 +466,19 @@ void handleIPC(clientArgs *client, std::string &inputStr,
     reply(sender_app, false);
     break;
   }
+  case BREW_STOP_PAYLOAD: {
+    const char *key = onion_cjson::string_item(my_json.get(), "key");
+    std::string error;
+    if (!StopManagedPayload(key, error)) {
+      LOG_ERROR("Managed payload stop failed: %s",
+                error.empty() ? "unknown error" : error.c_str());
+      reply(sender_app, true,
+            error.empty() ? "payload stop failed" : error.c_str());
+      break;
+    }
+    reply(sender_app, false, "stopped");
+    break;
+  }
   case BREW_RELOAD_SETTINGS: {
     LoadSettings(/*force=*/true);
     onion_notify(true, "notify.settings.reloaded");

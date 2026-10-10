@@ -196,6 +196,20 @@ extern "C" bool onion_proc_is_alive(pid_t pid) {
   return sysctl(mib, 4, nullptr, nullptr, nullptr, 0) == 0;
 }
 
+extern "C" uint64_t onion_proc_process_generation(pid_t pid) {
+  if (pid <= 0) {
+    return 0;
+  }
+  int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, static_cast<int>(pid)};
+  struct kinfo_proc process {};
+  size_t size = sizeof(process);
+  if (sysctl(mib, 4, &process, &size, nullptr, 0) != 0 ||
+      size < sizeof(process) || process.ki_pid != pid) {
+    return 0;
+  }
+  return process_generation(&process);
+}
+
 extern "C" pid_t onion_find_pid_ex(const char *name, bool needle,
                                    bool for_bigapp) {
   if (!name) {

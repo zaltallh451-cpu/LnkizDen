@@ -27,8 +27,9 @@ bool onion_payload_elf_key_from_name(const char *name, char *out, size_t out_sz)
 
 void onion_payload_pid_path(char *out, size_t out_sz, const char *title_id);
 pid_t onion_payload_read_pid_file(const char *pid_path);
-/** Persist only a real payload PID (>1); otherwise remove the marker. */
-void onion_payload_write_pid_file(const char *pid_path, pid_t pid);
+uint64_t onion_payload_read_pid_generation(const char *pid_path);
+/** Persist a PID and process-generation record; false if it cannot be secured. */
+bool onion_payload_write_pid_file(const char *pid_path, pid_t pid);
 
 /**
  * True when the PID file for @title_id names a still-live user Payload.

@@ -45,6 +45,28 @@ void start_payload(const PayloadEntry &entry) {
   notify("notify.payload.launch_failed", entry.path.c_str(), entry.tid.c_str());
 }
 
+void set_run_toggle_value(void *element, bool enabled) {
+  MonoDomain *domain = mono_domain_get ? mono_domain_get() : Root_Domain;
+  if (!domain)
+    domain = Root_Domain;
+  if (!element || !domain || !set_value_method || !mono_string_new ||
+      !mono_runtime_invoke) {
+    LOG_ERROR("Unable to restore payload run toggle state");
+    return;
+  }
+
+  MonoString *text = mono_string_new(domain, enabled ? "1" : "0");
+  if (!text) {
+    LOG_ERROR("Unable to allocate payload run toggle value");
+    return;
+  }
+  void *args[] = {text};
+  MonoObject *exception = nullptr;
+  mono_runtime_invoke(set_value_method, element, args, &exception);
+  if (exception)
+    LOG_ERROR("Failed to restore payload run toggle value");
+}
+
 } // namespace
 
 static OnPressResult prefix_id_payload_run(OnPressContext &ctx) {
@@ -55,15 +77,21 @@ static OnPressResult prefix_id_payload_run(OnPressContext &ctx) {
   if (!entry)
     return OnPressResult::Consumed;
 
-  char pid_path[256];
-  const int pid = static_cast<int>(shellui_payload_resolve_recorded_pid(
-      entry->tid.c_str(), pid_path, sizeof(pid_path)));
+  const int pid = static_cast<int>(
+      shellui_payload_resolve_recorded_pid(entry->tid.c_str(), nullptr, 0));
   if (!control_enabled(ctx.value) && pid > 1) {
-    LOG_DEBUG("killing recorded payload pid: %d (%s)", pid,
+    LOG_DEBUG("stopping recorded payload pid: %d (%s)", pid,
               entry->tid.c_str());
-    IPC_Client::getInstance(false).ForceKillPID(pid);
-    unlink(pid_path);
-    notify("notify.process.killed", entry->name.c_str());
+    if (IPC_Client::getInstance(false).StopPayload(entry->tid)) {
+      set_run_toggle_value(ctx.element, false);
+      notify("notify.process.killed", entry->name.c_str());
+    } else {
+      const bool still_running =
+          shellui_payload_resolve_recorded_pid(entry->tid.c_str(), nullptr, 0) >
+          1;
+      set_run_toggle_value(ctx.element, still_running);
+      notify("Could not safely stop payload %s", entry->name.c_str());
+    }
   } else if (control_enabled(ctx.value) && pid <= 1) {
     LOG_DEBUG("Payload %s not running", entry->tid.c_str());
     start_payload(*entry);

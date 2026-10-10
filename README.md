@@ -122,6 +122,15 @@ with the individual metric controls.
 Payloads can be marked as favorites from their detail page. Favorite payloads
 are sorted before other payloads; their `.favorite` marker remains beside the
 payload file and can be removed by turning the option off.
+Stopping a managed payload targets only the PID recorded for its validated
+payload identity in a protected LnkizDen-only runtime directory. New PID
+records include a process-start identity to reject
+stale/reused PIDs; stop requests send `SIGTERM`, wait briefly, and escalate
+only after rechecking that identity. The operating system does not provide an
+atomic signal-by-process-generation operation, so no PID-based stop can
+eliminate the narrow reuse race entirely. Legacy PID-only records cannot be
+safely stopped through LnkizDen because they lack a verifiable process
+identity; such requests are refused rather than risking an unrelated process.
 
 External plugin inventory shows its runtime state and version. Plugin and
 title-bound module controls refresh their page from the live inventory after

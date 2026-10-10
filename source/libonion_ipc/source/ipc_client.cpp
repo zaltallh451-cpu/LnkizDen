@@ -343,6 +343,21 @@ void IPC_Client::ForceKillPID(int pid) {
   IPCSendCommand(BREW_FORCE_KILL_PID, ipc_msg, json);
 }
 
+bool IPC_Client::StopPayload(const std::string &key) {
+  if (!require_crit("StopPayload")) {
+    return false;
+  }
+  cJSON *j = cJSON_CreateObject();
+  if (!j) {
+    LOG_ERROR("StopPayload: unable to create IPC request");
+    return false;
+  }
+  cJSON_AddStringToObject(j, "key", key.c_str());
+  const std::string json = json_object_str(j);
+  std::string ipc_msg;
+  return IPCSendCommand(BREW_STOP_PAYLOAD, ipc_msg, json);
+}
+
 IPC_Ret IPC_Client::CopyFile(std::string src, std::string dest) {
   if (!require_crit("CopyFile")) {
     return IPC_Ret::INVALID;

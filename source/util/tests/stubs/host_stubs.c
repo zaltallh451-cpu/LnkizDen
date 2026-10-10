@@ -108,6 +108,10 @@ bool onion_proc_is_alive(pid_t pid) {
   return pid > 1 && pid == g_test_live_pid;
 }
 
+uint64_t onion_proc_process_generation(pid_t pid) {
+  return pid > 1 ? (uint64_t)pid + 100000u : 0;
+}
+
 int sceKernelGetProcessName(int pid, char *name) {
   (void)pid;
   if (name)

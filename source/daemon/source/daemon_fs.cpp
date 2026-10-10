@@ -7,6 +7,7 @@
 #include "sprx_plugin_manager_runtime.hpp"
 #include <onion/platform.h>
 #include <onion/proc_query.h>
+#include <onion/payload_identity.h>
 #include <onion/ready.h>
 #include <onion/ipc_server.hpp>
 #include <onion/system_tmp.h>
@@ -281,6 +282,147 @@ void ForceKillProc(int pid) {
   }
 
   set_proc_authid(getpid(), authid); // Restore original authid
+}
+
+static bool read_managed_payload_pid(const char *path, pid_t *pid,
+                                     uint64_t *generation) {
+  if (!path || !pid || !generation)
+    return false;
+  const int fd = open(path, O_RDONLY | O_NOFOLLOW);
+  if (fd < 0)
+    return false;
+  struct stat file_stat;
+  if (fstat(fd, &file_stat) != 0 || !S_ISREG(file_stat.st_mode) ||
+      file_stat.st_uid != geteuid() || (file_stat.st_mode & 0077) != 0) {
+    close(fd);
+    return false;
+  }
+  char contents[64];
+  const ssize_t size = read(fd, contents, sizeof(contents) - 1);
+  close(fd);
+  if (size <= 0)
+    return false;
+  contents[size] = '\0';
+
+  errno = 0;
+  char *end = nullptr;
+  const long parsed_pid = strtol(contents, &end, 10);
+  if (errno == ERANGE || parsed_pid <= 1 || parsed_pid > INT_MAX ||
+      !end || *end != '\n')
+    return false;
+
+  errno = 0;
+  char *generation_end = nullptr;
+  const unsigned long long parsed_generation =
+      strtoull(end + 1, &generation_end, 10);
+  if (errno == ERANGE || parsed_generation == 0 || !generation_end ||
+      (*generation_end != '\0' && *generation_end != '\n'))
+    return false;
+  *pid = static_cast<pid_t>(parsed_pid);
+  *generation = static_cast<uint64_t>(parsed_generation);
+  return true;
+}
+
+bool StopManagedPayload(const char *key, std::string &error) {
+  if (!key || std::strlen(key) != ONION_PAYLOAD_IDENTITY_SIZE - 1 ||
+      key[0] != 'p') {
+    error = "invalid payload identity";
+    return false;
+  }
+  for (size_t i = 1; key[i]; ++i) {
+    if (!((key[i] >= '0' && key[i] <= '9') ||
+          (key[i] >= 'a' && key[i] <= 'f'))) {
+      error = "invalid payload identity";
+      return false;
+    }
+  }
+
+  char pid_path[256];
+  if (!onion_system_tmp_payload_pid_path(pid_path, sizeof(pid_path), key)) {
+    error = "payload identity path is invalid";
+    return false;
+  }
+  struct stat directory_stat;
+  if (lstat(ONION_SYSTEM_TMP_PAYLOAD_PID_ROOT, &directory_stat) != 0 ||
+      !S_ISDIR(directory_stat.st_mode) ||
+      directory_stat.st_uid != geteuid() ||
+      (directory_stat.st_mode & 0077) != 0) {
+    error = "payload PID directory is not protected";
+    return false;
+  }
+  pid_t pid = -1;
+  uint64_t generation = 0;
+  const uint64_t current_generation =
+      read_managed_payload_pid(pid_path, &pid, &generation)
+          ? onion_proc_process_generation(pid)
+          : 0;
+  if (generation == 0 || current_generation != generation) {
+    error = "payload is no longer verifiably running; refresh the list";
+    return false;
+  }
+  if (pid == getpid()) {
+    error = "refusing to stop the daemon";
+    return false;
+  }
+
+  const auto ownership_status = [pid, generation]() {
+    if (!onion_proc_is_alive(pid))
+      return 0;
+    const uint64_t current = onion_proc_process_generation(pid);
+    if (current == 0)
+      return -1;
+    return current == generation ? 1 : 0;
+  };
+  const auto wait_for_exit = [&ownership_status]() {
+    for (int attempt = 0; attempt < 20; ++attempt) {
+      const int status = ownership_status();
+      if (status <= 0)
+        return status;
+      usleep(100 * 1000);
+    }
+    return ownership_status();
+  };
+
+  if (ownership_status() != 1) {
+    error = "payload identity changed before termination; refresh the list";
+    return false;
+  }
+  if (kill(pid, SIGTERM) != 0 && errno != ESRCH) {
+    LOG_WARN("SIGTERM for managed payload pid=%d failed: %s", pid,
+             strerror(errno));
+  }
+  int stopped = wait_for_exit();
+  if (stopped < 0) {
+    error = "unable to verify the payload process after SIGTERM";
+    return false;
+  }
+  if (stopped == 1) {
+    if (ownership_status() != 1) {
+      error = "payload identity changed before termination escalation";
+      return false;
+    }
+    ForceKillProc(static_cast<int>(pid));
+    stopped = wait_for_exit();
+    if (stopped < 0) {
+      error = "unable to verify the payload process after escalation";
+      return false;
+    }
+    if (stopped == 1) {
+      error = "payload did not exit after termination request";
+      return false;
+    }
+  }
+
+  pid_t current_pid = -1;
+  uint64_t current_generation = 0;
+  if (read_managed_payload_pid(pid_path, &current_pid,
+                               &current_generation) &&
+      current_pid == pid && current_generation == generation &&
+      unlink(pid_path) != 0 && errno != ENOENT) {
+      error = "payload stopped but its PID record could not be cleared";
+      return false;
+  }
+  return true;
 }
 
 static void shutdown_owned_process(const char *label, pid_t pid) {

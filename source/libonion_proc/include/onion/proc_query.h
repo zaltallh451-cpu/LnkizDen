@@ -50,6 +50,9 @@ pid_t onion_find_pid_ex(const char *name, bool needle, bool for_bigapp);
 /** True if pid still exists (KERN_PROC_PID). */
 bool onion_proc_is_alive(pid_t pid);
 
+/** Process start identity for PID-reuse checks; returns 0 when unavailable. */
+uint64_t onion_proc_process_generation(pid_t pid);
+
 typedef int (*onion_get_process_name_fn)(int pid, char *name);
 typedef int (*onion_get_app_info_fn)(pid_t pid, void *app_info /* app_info_t */);
 typedef int (*onion_get_bigapp_id_fn)(void);

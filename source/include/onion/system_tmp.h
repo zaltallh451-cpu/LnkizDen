@@ -17,6 +17,7 @@
 #define ONION_SYSTEM_TMP_IPC_ROOT ONION_SYSTEM_TMP_ROOT "/ipc"
 #define ONION_SYSTEM_TMP_READY_ROOT ONION_SYSTEM_TMP_ROOT "/ready"
 #define ONION_SYSTEM_TMP_PID_ROOT ONION_SYSTEM_TMP_ROOT "/pid"
+#define ONION_SYSTEM_TMP_PAYLOAD_PID_ROOT ONION_SYSTEM_TMP_ROOT "/payload_pid"
 
 #define ONION_SYSTEM_TMP_CRIT_SOCKET ONION_SYSTEM_TMP_IPC_ROOT "/crit_service"
 #define ONION_SYSTEM_TMP_UTIL_SOCKET ONION_SYSTEM_TMP_IPC_ROOT "/util_service"
@@ -39,5 +40,15 @@ static inline bool onion_system_tmp_pid_path(char *out, size_t out_sz,
   }
   int n = snprintf(out, out_sz, "%s/%s.PID", ONION_SYSTEM_TMP_PID_ROOT,
                    key ? key : "");
+  return n > 0 && (size_t)n < out_sz;
+}
+
+static inline bool onion_system_tmp_payload_pid_path(char *out, size_t out_sz,
+                                                      const char *key) {
+  if (!out || out_sz == 0) {
+    return false;
+  }
+  int n = snprintf(out, out_sz, "%s/%s.PID",
+                   ONION_SYSTEM_TMP_PAYLOAD_PID_ROOT, key ? key : "");
   return n > 0 && (size_t)n < out_sz;
 }

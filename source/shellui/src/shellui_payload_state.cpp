@@ -25,7 +25,7 @@ static pid_t shellui_payload_drop_stale_pid(const char *pid_path,
 }
 
 void shellui_payload_pid_path(char *out, size_t out_sz, const char *key) {
-  (void)onion_system_tmp_pid_path(out, out_sz, key);
+  (void)onion_system_tmp_payload_pid_path(out, out_sz, key);
 }
 
 pid_t shellui_payload_read_pid_file(const char *pid_path) {
@@ -62,6 +62,14 @@ pid_t shellui_payload_validate_pid(pid_t pid, const char *pid_path,
     return shellui_payload_drop_stale_pid(pid_path, key);
   }
 
+  const uint64_t generation = onion_payload_read_pid_generation(pid_path);
+  if (generation != 0) {
+    const uint64_t current_generation = onion_proc_process_generation(pid);
+    if (current_generation != 0 && current_generation != generation) {
+      return shellui_payload_drop_stale_pid(pid_path, key);
+    }
+  }
+
   char name[32];
   if (sceKernelGetProcessName && sceKernelGetProcessName((int)pid, name) < 0) {
     return shellui_payload_drop_stale_pid(pid_path, key);
@@ -82,6 +90,13 @@ pid_t shellui_payload_resolve_recorded_pid(const char *key, char *pid_path,
   }
 
   shellui_payload_pid_path(path, path_sz, key);
-  return shellui_payload_validate_pid(shellui_payload_read_pid_file(path), path,
-                                      key);
+  pid_t pid = shellui_payload_read_pid_file(path);
+  if (pid <= 1) {
+    if (pid == 1)
+      unlink(path);
+    if (!onion_system_tmp_pid_path(path, path_sz, key))
+      return -1;
+    pid = shellui_payload_read_pid_file(path);
+  }
+  return shellui_payload_validate_pid(pid, path, key);
 }

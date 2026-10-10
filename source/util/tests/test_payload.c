@@ -4,11 +4,13 @@
 
 #include <onion/payload.h>
 #include <onion/elf_name.h>
+#include <onion/system_tmp.h>
 #include <elfldr_remote.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 void onion_test_elfldr_reset(void);
@@ -32,7 +34,7 @@ static int test_is_elf(void) {
 static int test_pid_path(void) {
   char path[128];
   onion_payload_pid_path(path, sizeof(path), "mytool");
-  TEST_ASSERT_STREQ("/tmp/onionhen/pid/mytool.PID", path);
+  TEST_ASSERT_STREQ("/tmp/onionhen/payload_pid/mytool.PID", path);
   return 0;
 }
 
@@ -85,18 +87,36 @@ static int test_path_identity(void) {
 
 static int test_pid_file_roundtrip(void) {
   char path[256];
-  TEST_ASSERT_EQ_INT(0, onion_test_write_temp_file(".PID", "", 0, path,
-                                                   sizeof(path)));
+  char legacy_path[256];
+  char escaped_path[256];
+  char symlink_path[256];
+  onion_payload_pid_path(path, sizeof(path), "roundtrip test");
 
-  onion_payload_write_pid_file(path, 4242);
+  TEST_ASSERT_TRUE(onion_payload_write_pid_file(path, 4242));
   TEST_ASSERT_EQ_INT(4242, (int)onion_payload_read_pid_file(path));
+  TEST_ASSERT_EQ_U64(104242, onion_payload_read_pid_generation(path));
 
-  onion_payload_write_pid_file(path, -1);
+  TEST_ASSERT_EQ_INT(0, onion_test_write_temp_file(
+                            ".legacy.PID", "4242", 4, legacy_path,
+                            sizeof(legacy_path)));
+  TEST_ASSERT_EQ_U64(0, onion_payload_read_pid_generation(legacy_path));
+  onion_test_remove_file(legacy_path);
+
+  TEST_ASSERT_TRUE(!onion_payload_write_pid_file("/tmp/outside.PID", 4242));
+  snprintf(escaped_path, sizeof(escaped_path), "%s/../pid/other.PID",
+           ONION_SYSTEM_TMP_PAYLOAD_PID_ROOT);
+  TEST_ASSERT_TRUE(!onion_payload_write_pid_file(escaped_path, 4242));
+  onion_payload_pid_path(symlink_path, sizeof(symlink_path), "symlink-test");
+  unlink(symlink_path);
+  TEST_ASSERT_EQ_INT(0, symlink("/tmp/outside.PID", symlink_path));
+  TEST_ASSERT_TRUE(!onion_payload_write_pid_file(symlink_path, 4242));
+  onion_test_remove_file(symlink_path);
+  TEST_ASSERT_TRUE(onion_payload_write_pid_file(path, -1));
   TEST_ASSERT_EQ_INT(-1, (int)onion_payload_read_pid_file(path));
 
-  onion_payload_write_pid_file(path, 1);
+  TEST_ASSERT_TRUE(onion_payload_write_pid_file(path, 1));
   TEST_ASSERT_EQ_INT(-1, (int)onion_payload_read_pid_file(path));
-  onion_payload_write_pid_file(path, 0);
+  TEST_ASSERT_TRUE(onion_payload_write_pid_file(path, 0));
   TEST_ASSERT_EQ_INT(-1, (int)onion_payload_read_pid_file(path));
 
   TEST_ASSERT_EQ_INT(-1, (int)onion_payload_read_pid_file(
@@ -196,6 +216,49 @@ static int test_payload_running_without_live_pid(void) {
   return 0;
 }
 
+static int test_payload_running_rejects_reused_pid(void) {
+  char path[256];
+  const char key[] = "generation-test";
+  onion_payload_pid_path(path, sizeof(path), key);
+  onion_payload_write_pid_file(path, 4242);
+
+  FILE *file = fopen(path, "w");
+  TEST_ASSERT_TRUE(file != NULL);
+  TEST_ASSERT_TRUE(fputs("4242\n1", file) >= 0);
+  TEST_ASSERT_EQ_INT(0, fclose(file));
+
+  onion_test_live_pid(4242);
+  TEST_ASSERT_TRUE(!onion_payload_running(key));
+  onion_test_live_pid(-1);
+  onion_test_remove_file(path);
+  return 0;
+}
+
+static int test_payload_running_legacy_pid_marker(void) {
+  char path[256];
+  const char key[] = "legacy-generation-test";
+  TEST_ASSERT_TRUE(onion_system_tmp_pid_path(path, sizeof(path), key));
+  char payload_path[256];
+  onion_payload_pid_path(payload_path, sizeof(payload_path), key);
+  mkdir(ONION_SYSTEM_TMP_ROOT, 0777);
+  mkdir(ONION_SYSTEM_TMP_PID_ROOT, 0777);
+  unlink(path);
+  unlink(payload_path);
+
+  FILE *file = fopen(path, "w");
+  TEST_ASSERT_TRUE(file != NULL);
+  TEST_ASSERT_TRUE(fputs("4242", file) >= 0);
+  TEST_ASSERT_EQ_INT(0, fclose(file));
+
+  onion_test_live_pid(4242);
+  const bool running = onion_payload_running(key);
+  onion_test_live_pid(-1);
+  onion_test_remove_file(path);
+  onion_test_remove_file(payload_path);
+  TEST_ASSERT_TRUE(running);
+  return 0;
+}
+
 static int test_load_preserves_running_instance(void) {
   char path[256];
   char pid_path[256];
@@ -285,6 +348,10 @@ int test_payload_suite(void) {
                              test_load_requires_real_pid);
   failures += onion_test_run("payload.running_without_live_pid",
                              test_payload_running_without_live_pid);
+  failures += onion_test_run("payload.running_rejects_reused_pid",
+                             test_payload_running_rejects_reused_pid);
+  failures += onion_test_run("payload.running_legacy_pid_marker",
+                             test_payload_running_legacy_pid_marker);
   failures += onion_test_run("payload.load_preserves_running_instance",
                              test_load_preserves_running_instance);
   failures += onion_test_run("payload.load_with_explicit_key",

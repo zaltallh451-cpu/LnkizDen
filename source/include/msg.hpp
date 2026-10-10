@@ -102,6 +102,7 @@ enum DaemonCommands : unsigned int {
   /** Crit: stop owned util/loader → restart SceShellUI → exit daemon. */
   BREW_SHUTDOWN_STACK = 0xDEAD0002u,
   BREW_FORCE_KILL_PID = 0xDEADCAFEu,
+  BREW_STOP_PAYLOAD = 0xDEADCAFFu,
 };
 
 /** TCP control port on crit daemon (LAN). Same wire as scripts/shutdown_onion.py. */

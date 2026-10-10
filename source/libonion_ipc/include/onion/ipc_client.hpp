@@ -97,6 +97,7 @@ public:
   /** Crit Unix IPC: util → restart ShellUI → daemon exit (BREW_SHUTDOWN_STACK). */
   void ShutdownStack();
   void ForceKillPID(int pid);
+  bool StopPayload(const std::string &key);
   IPC_Ret CopyFile(std::string src, std::string dest);
   IPC_Ret LaunchPayload(std::string payload_path, std::string tid);
   bool GameVerFromTid(std::string tid, std::string &out_ver);
