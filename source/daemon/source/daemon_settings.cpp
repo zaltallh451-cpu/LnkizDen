@@ -9,6 +9,7 @@
 #include <onion/notify_i18n.h>
 #include <onion/settings.hpp>
 #include <onion/log_settings.hpp>
+#include <mutex>
 
 extern "C" int sceSystemServiceParamGetInt(int param_id, int *value);
 
@@ -21,12 +22,14 @@ struct ConfigState {
 };
 
 ConfigState config_state;
+std::mutex config_mutex;
 
 } // namespace
 
 onion::SettingsStore g_settings;
 
 bool LoadSettings(bool force) {
+  std::lock_guard<std::mutex> lock(config_mutex);
   const onion::Settings previous = g_settings.snapshot();
   const time_t newest = onion::settings_config_newest_mtime();
 
@@ -89,7 +92,14 @@ bool LoadSettings(bool force) {
   return true;
 }
 
-void SettingsNoteDiskWritten() {
+bool PersistSettings(const std::function<void(onion::Settings &)> &update) {
+  if (!update)
+    return false;
+  std::lock_guard<std::mutex> lock(config_mutex);
+  const onion::Settings saved = g_settings.update(update);
+  if (!onion::settings_save(saved))
+    return false;
   config_state.last_modified = onion::settings_config_newest_mtime();
   config_state.ever_loaded = true;
+  return true;
 }

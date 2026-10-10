@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#10141b">
+    <title>LnkizDen Companion</title>
+    <link rel="stylesheet" href="/companion.css">
+    <script src="/companion.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="LnkizDen Companion home">
+        <span class="brand-mark">L</span>
+        <span><strong>LnkizDen</strong><small>COMPANION</small></span>
+      </a>
+      <div class="connection">
+        <span id="connection-dot" class="status-dot"></span>
+        <span id="connection-label">Not paired</span>
+        <button id="refresh-button" class="icon-button" type="button" aria-label="Refresh status">Refresh</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="pairing-panel" class="pairing-panel" aria-labelledby="pairing-title">
+        <div class="eyebrow">LOCAL NETWORK · PAIRING REQUIRED</div>
+        <h1 id="pairing-title">Connect to your console</h1>
+        <p>Enter the temporary code shown on the PS5. Pairing is limited to this browser session.</p>
+        <form id="pairing-form">
+          <label for="pairing-code">One-time code</label>
+          <div class="pairing-row">
+            <input id="pairing-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required>
+            <button class="primary-button" type="submit">Pair device</button>
+          </div>
+          <p id="pairing-error" class="error" role="alert" hidden></p>
+        </form>
+        <p class="privacy-note">Use only on a trusted home network. This dashboard does not expose account details or permit arbitrary payload execution.</p>
+      </section>
+
+      <section id="dashboard" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">PRIVATE COMPANION</div>
+            <h1>Stability Center</h1>
+            <p>Runtime health, compatibility evidence, and recovery tools.</p>
+          </div>
+          <button id="download-diagnostics" class="secondary-button" type="button">Export diagnostics</button>
+        </div>
+
+        <nav class="tabs" aria-label="Dashboard sections">
+          <button class="tab active" type="button" data-panel="overview">Overview</button>
+          <button class="tab" type="button" data-panel="compatibility">Compatibility</button>
+          <button class="tab" type="button" data-panel="timeline">Startup timeline</button>
+          <button class="tab" type="button" data-panel="cheats">Cheat forecast</button>
+          <button class="tab" type="button" data-panel="recovery">Recovery</button>
+          <button class="tab" type="button" data-panel="overlay">Overlay</button>
+        </nav>
+
+        <section id="panel-overview" class="panel">
+          <div class="summary-grid">
+            <article class="card hero-card">
+              <div class="card-label">CONSOLE FIRMWARE</div>
+              <strong id="firmware-value" class="big-value">—</strong>
+              <span id="firmware-evidence" class="muted">Checking local status…</span>
+            </article>
+            <article class="card">
+              <div class="card-label">LNKIZDEN</div>
+              <strong id="app-version" class="medium-value">—</strong>
+              <span id="daemon-state" class="state-line">Daemon status unavailable</span>
+            </article>
+            <article class="card">
+              <div class="card-label">TOOLBOX</div>
+              <strong id="toolbox-state" class="medium-value">—</strong>
+              <span id="util-state" class="state-line">Utility status unavailable</span>
+            </article>
+          </div>
+          <div class="content-grid">
+            <article class="card">
+              <div class="section-heading"><div><div class="eyebrow">LIVE CHECKS</div><h2>Runtime services</h2></div></div>
+              <div id="service-list" class="service-list"><p class="muted">Waiting for status…</p></div>
+            </article>
+            <article class="card">
+              <div class="section-heading"><div><div class="eyebrow">LATEST EVENT</div><h2>Startup health</h2></div></div>
+              <p id="latest-event" class="muted">No startup events loaded.</p>
+              <button class="text-button" type="button" data-go="timeline">Open full timeline →</button>
+            </article>
+          </div>
+          <div class="advisory"><strong>Safety:</strong> Compatibility labels describe available evidence, not a guarantee. Keep backups of important data and avoid repeated payload launches.</div>
+        </section>
+
+        <section id="panel-compatibility" class="panel" hidden>
+          <div class="section-heading"><div><div class="eyebrow">EVIDENCE, NOT PROMISES</div><h2>Compatibility confidence</h2></div></div>
+          <p class="muted">Claims, CI results, and physical-console tests are shown separately. Unknown combinations remain unknown.</p>
+          <div id="compatibility-list" class="stack-list"><p class="muted">Loading evidence…</p></div>
+        </section>
+
+        <section id="panel-timeline" class="panel" hidden>
+          <div class="section-heading"><div><div class="eyebrow">LOCAL EVENT HISTORY</div><h2>Startup timeline</h2></div></div>
+          <p class="muted">Shows LnkizDen-owned startup milestones and outcomes only. No user names, URLs, or account data.</p>
+          <ol id="timeline-list" class="timeline"><li class="muted">Loading events…</li></ol>
+        </section>
+
+        <section id="panel-cheats" class="panel" hidden>
+          <div class="section-heading"><div><div class="eyebrow">ADVISORY ANALYSIS</div><h2>Cheat conflict forecast</h2></div></div>
+          <p class="muted">The forecast reports only conflicts supported by parsed cheat metadata. It will not guess about undocumented memory effects.</p>
+          <div id="conflict-list" class="stack-list"><p class="muted">Loading conflict report…</p></div>
+        </section>
+
+        <section id="panel-recovery" class="panel" hidden>
+          <div class="section-heading"><div><div class="eyebrow">LNKIZDEN SETTINGS ONLY</div><h2>Recovery points</h2></div></div>
+          <p class="muted">Create or restore an atomic snapshot of LnkizDen configuration. This never modifies Sony system state.</p>
+          <div class="action-row">
+            <button id="create-backup" class="primary-button" type="button">Create recovery point</button>
+          </div>
+          <div id="recovery-list" class="stack-list"><p class="muted">Loading recovery points…</p></div>
+          <p id="recovery-message" role="status" class="muted"></p>
+        </section>
+
+        <section id="panel-overlay" class="panel" hidden>
+          <div class="section-heading"><div><div class="eyebrow">EXPLICIT SETTINGS</div><h2>Overlay controls</h2></div></div>
+          <p class="muted">Changes affect LnkizDen’s game overlay only. Confirm each save; unknown settings are left untouched.</p>
+          <form id="overlay-form" class="settings-form">
+            <label class="toggle-row"><span><strong>Show overlay</strong><small>Master visibility for the game monitor bar</small></span><input name="enabled" type="checkbox"></label>
+            <label class="toggle-row"><span><strong>Show background</strong><small>Translucent panel behind the metrics</small></span><input name="background" type="checkbox"></label>
+            <label class="toggle-row"><span><strong>Show CPU</strong><small>CPU telemetry, when available</small></span><input name="cpu" type="checkbox"></label>
+            <label class="toggle-row"><span><strong>Show GPU</strong><small>GPU telemetry, when available</small></span><input name="gpu" type="checkbox"></label>
+            <label class="toggle-row"><span><strong>Show memory</strong><small>Memory telemetry, when available</small></span><input name="memory" type="checkbox"></label>
+            <label class="toggle-row"><span><strong>Show FPS</strong><small>Frame-rate telemetry, when available</small></span><input name="fps" type="checkbox"></label>
+            <div class="form-row">
+              <label for="overlay-edge">Screen edge</label>
+              <select id="overlay-edge" name="edge"><option value="top">Top</option><option value="bottom">Bottom</option></select>
+            </div>
+            <div class="form-row">
+              <label for="overlay-align">Alignment</label>
+              <select id="overlay-align" name="align"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>
+            </div>
+            <div class="form-row">
+              <label for="overlay-font-size">Text size</label>
+              <select id="overlay-font-size" name="font_size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select>
+            </div>
+            <div class="action-row"><button class="primary-button" type="submit">Save overlay settings</button><span id="overlay-message" role="status" class="muted"></span></div>
+          </form>
+        </section>
+      </section>
+    </main>
+    <footer><span>LnkizDen Companion</span><span>Local network only · Paired session</span></footer>
+    <dialog id="confirm-dialog">
+      <form method="dialog">
+        <h2 id="confirm-title">Confirm action</h2>
+        <p id="confirm-message"></p>
+        <div class="action-row"><button class="secondary-button" value="cancel">Cancel</button><button id="confirm-accept" class="danger-button" value="confirm">Confirm</button></div>
+      </form>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

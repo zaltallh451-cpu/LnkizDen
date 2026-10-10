@@ -184,6 +184,13 @@ void start_worker_threads(pthread_t* app_jailbreak_thr, pthread_t* msg_thr) {
   pthread_t language_thr = nullptr;
   pthread_create(&language_thr, nullptr, system_language_poll_thread, nullptr);
   pthread_detach(language_thr);
+  pthread_t companion_thr = nullptr;
+  if (pthread_create(&companion_thr, nullptr, companion_dashboard_thread,
+                     nullptr) == 0) {
+    pthread_detach(companion_thr);
+  } else {
+    LOG_ERROR("[companion] Dashboard thread creation failed");
+  }
   pthread_t resume_thr = nullptr;
   pthread_create(&resume_thr, nullptr, resume_recovery_thread, nullptr);
   pthread_detach(resume_thr);
@@ -272,9 +279,12 @@ int main() {
 
   /* Settings (incl. notify i18n language) before any user-facing toast. */
   LoadSettings();
+  companion_dashboard_record_event("Settings", "ready",
+                                   "LnkizDen configuration loaded");
 
   OrbisKernelSwVersion sys_ver;
   sceKernelGetProsperoSystemSwVersion(&sys_ver);
+  companion_dashboard_set_firmware(sys_ver.version);
   const int fw_ver = (sys_ver.version >> 16);
   const auto debug_settings_route =
       onion::debug_settings_route::DebugSettingsRoutePolicy::for_system_version(
@@ -319,6 +329,8 @@ int main() {
   else
     LOG_ERROR("[plugins] startup skipped because plugin IPC is not listening");
   onion_ready_signal_pid(ONION_READY_DAEMON, getpid());
+  companion_dashboard_record_event("Daemon startup", "ready",
+                                   "Daemon runtime is ready");
 
   LOG_DEBUG("is toolbox only: %s | ver: %x", toolbox_only ? "Yes" : "No",
             sys_ver.version);

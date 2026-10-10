@@ -7,7 +7,9 @@
 #include <atomic>
 #include <cstdint>
 #include <string>
+#include <functional>
 #include <sys/types.h>
+#include <onion/settings.hpp>
 #include <msg.hpp>
 #include <onion/ipc_server.hpp>
 
@@ -32,8 +34,8 @@ extern std::atomic_bool g_stack_shutting_down;
  */
 bool LoadSettings(bool force = false);
 
-/** After settings_save from this process, refresh mtime gate so we don't thrash. */
-void SettingsNoteDiskWritten();
+/** Serialize daemon-owned settings mutations, disk writes, and reload gating. */
+bool PersistSettings(const std::function<void(onion::Settings &)> &update);
 
 void reply(int sender_socket, bool error, std::string out_var = "Nothing");
 /** Last reply error for BREW_LAST_RET (0 = success, -1 = error). */
@@ -55,6 +57,11 @@ void *fps_sampler_thread(void *args) noexcept;
 void *vsync_fps_sampler_thread(void *args) noexcept;
 /** Live console-language poll: pushes language changes to util over IPC. */
 void *system_language_poll_thread(void *args) noexcept;
+/** Optional paired dashboard HTTP service on TCP :9049. */
+void *companion_dashboard_thread(void *args) noexcept;
+void companion_dashboard_set_firmware(uint32_t version) noexcept;
+void companion_dashboard_record_event(const char *stage, const char *outcome,
+                                      const char *detail) noexcept;
 
 /**
  * Tear down LnkizDen userland (does not return). Caller should reply to IPC first.

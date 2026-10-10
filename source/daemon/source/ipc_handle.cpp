@@ -407,12 +407,9 @@ void handleIPC(clientArgs *client, std::string &inputStr,
     if (!enabled) {
       onion_notify(true, "notify.fan.disabled");
       restore_automatic_fan();
-      const onion::Settings saved = g_settings.update([](onion::Settings &s) {
+      if (!PersistSettings([](onion::Settings &s) {
         s.enable_fan_speed = false;
-      });
-      if (onion::settings_save(saved)) {
-        SettingsNoteDiskWritten();
-      } else {
+      })) {
         LOG_ERROR("Fan disable: failed to persist settings");
       }
       reply(sender_app, false);
@@ -421,13 +418,10 @@ void handleIPC(clientArgs *client, std::string &inputStr,
 
     if (set_fan_threshold(speed)) {
       onion_notify(true, "notify.fan.adjusted", speed);
-      const onion::Settings saved = g_settings.update([speed](onion::Settings &s) {
+      if (!PersistSettings([speed](onion::Settings &s) {
         s.enable_fan_speed = true;
         s.fan_threshold = speed;
-      });
-      if (onion::settings_save(saved)) {
-        SettingsNoteDiskWritten();
-      } else {
+      })) {
         LOG_ERROR("Fan enable: memory updated but disk twin save failed");
       }
       reply(sender_app, false);

@@ -46,6 +46,9 @@ static int test_defaults_and_serialize_keys(void) {
   onion::Settings s{};
   std::string text = onion::settings_serialize(s);
 
+  TEST_ASSERT_TRUE(!s.companion_dashboard_enabled);
+  TEST_ASSERT_TRUE(text.find("[companion]\n") != std::string::npos);
+  TEST_ASSERT_TRUE(text.find("dashboard_enabled=false") != std::string::npos);
   TEST_ASSERT_TRUE(text.find("[meta]") != std::string::npos);
   TEST_ASSERT_TRUE(text.find("schema_version=1") != std::string::npos);
   TEST_ASSERT_TRUE(text.find("[toolbox]") != std::string::npos);
@@ -151,7 +154,22 @@ static int test_backup_loader_requires_complete_canonical_schema(void) {
   TEST_ASSERT_TRUE(!out.overlay_enabled);
   TEST_ASSERT_EQ_INT(63, out.fan_threshold);
 
+  std::string legacy = onion::settings_serialize(onion::Settings{});
+  const size_t companion = legacy.find("[companion]\n");
+  const size_t toolbox = legacy.find("[toolbox]\n", companion);
+  TEST_ASSERT_TRUE(companion != std::string::npos);
+  TEST_ASSERT_TRUE(toolbox != std::string::npos);
+  legacy.erase(companion, toolbox - companion);
   FILE *file = fopen(path.c_str(), "w");
+  TEST_ASSERT_TRUE(file != nullptr);
+  TEST_ASSERT_EQ_INT(static_cast<int>(legacy.size()),
+                     static_cast<int>(fwrite(legacy.data(), 1, legacy.size(),
+                                             file)));
+  fclose(file);
+  TEST_ASSERT_TRUE(onion::settings_load_backup_file(path.c_str(), &out));
+  TEST_ASSERT_TRUE(!out.companion_dashboard_enabled);
+
+  file = fopen(path.c_str(), "w");
   TEST_ASSERT_TRUE(file != nullptr);
   fputs("[meta]\nschema_version=1\n\n[overlay]\nenabled=maybe\n", file);
   fclose(file);
@@ -172,6 +190,7 @@ static int test_full_schema_roundtrip(void) {
   TEST_ASSERT_TRUE(!path.empty());
 
   onion::Settings in{};
+  in.companion_dashboard_enabled = true;
   in.startup_open_after_load = onion::kStartupOpenHomeMenu;
   in.show_boot_thanks = false;
   in.cheats_mirror = onion::kCheatsMirrorCnb;
@@ -213,6 +232,8 @@ static int test_full_schema_roundtrip(void) {
   onion::Settings out{};
   TEST_ASSERT_TRUE(onion::settings_load_file(path.c_str(), &out));
 
+  TEST_ASSERT_TRUE(out.companion_dashboard_enabled ==
+                   in.companion_dashboard_enabled);
   TEST_ASSERT_EQ_INT(in.startup_open_after_load, out.startup_open_after_load);
   TEST_ASSERT_TRUE(out.show_boot_thanks == in.show_boot_thanks);
   TEST_ASSERT_TRUE(out.app_jailbreak_enabled == in.app_jailbreak_enabled);
@@ -787,12 +808,14 @@ static int test_overlay_font_and_order(void) {
   TEST_ASSERT_TRUE(!path.empty());
   FILE *f = fopen(path.c_str(), "w");
   TEST_ASSERT_TRUE(f != nullptr);
-  fputs("[meta]\nschema_version=1\n\n[overlay]\n"
+  fputs("[meta]\nschema_version=1\n\n[companion]\n"
+        "dashboard_enabled=true\n\n[overlay]\n"
         "font_size=large\norder=fan,ip,ram\n",
         f);
   fclose(f);
   onion::Settings out{};
   TEST_ASSERT_TRUE(onion::settings_load_file(path.c_str(), &out));
+  TEST_ASSERT_TRUE(out.companion_dashboard_enabled);
   TEST_ASSERT_EQ_INT(onion::kOverlayFontLarge, out.overlay_font_size);
   TEST_ASSERT_EQ_INT(onion::kOverlayMetricFan, out.overlay_order[0]);
   TEST_ASSERT_EQ_INT(onion::kOverlayMetricIp, out.overlay_order[1]);
@@ -801,14 +824,19 @@ static int test_overlay_font_and_order(void) {
   TEST_ASSERT_TRUE(onion::settings_serialize(out).find("font_size=large") !=
                    std::string::npos);
   TEST_ASSERT_TRUE(onion::settings_serialize(out).find(
+                       "dashboard_enabled=true") != std::string::npos);
+  TEST_ASSERT_TRUE(onion::settings_serialize(out).find(
                        "order=fan,ip,memory,fps,cpu,gpu") != std::string::npos);
 
   f = fopen(path.c_str(), "w");
   TEST_ASSERT_TRUE(f != nullptr);
-  fputs("[meta]\nschema_version=1\n\n[overlay]\nfont_size=tiny\norder=\n", f);
+  fputs("[meta]\nschema_version=1\n\n[companion]\n"
+        "dashboard_enabled=maybe\n\n[overlay]\nfont_size=tiny\norder=\n",
+        f);
   fclose(f);
   onion::Settings invalid{};
   TEST_ASSERT_TRUE(onion::settings_load_file(path.c_str(), &invalid));
+  TEST_ASSERT_TRUE(!invalid.companion_dashboard_enabled);
   TEST_ASSERT_EQ_INT(onion::kOverlayFontMedium, invalid.overlay_font_size);
   TEST_ASSERT_EQ_INT(onion::kOverlayMetricFps, invalid.overlay_order[0]);
   TEST_ASSERT_EQ_INT(onion::kOverlayMetricFan, invalid.overlay_order[5]);

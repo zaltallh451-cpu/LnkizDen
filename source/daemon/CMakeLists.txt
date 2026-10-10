@@ -43,10 +43,16 @@ set_source_files_properties(
 	PROPERTIES OBJECT_DEPENDS
 		"${ONIONHEN_OUT_BIN}/shellui.elf;${_onion_util_elf};${_onion_elfldr_elf}"
 )
+set_source_files_properties(
+	${D_SRC}/companion_assets.c
+	PROPERTIES OBJECT_DEPENDS
+		"${PROJECT_ROOT}/web/companion/index.html;${PROJECT_ROOT}/web/companion/companion.css;${PROJECT_ROOT}/web/companion/companion.js"
+)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
 		ONIONHEN_SHELLUI_ELF="${ONIONHEN_OUT_BIN}/shellui.elf"
 		ONIONHEN_UTIL_ELF="${_onion_util_elf}"
 		ONIONHEN_ELFLDR_ELF="${_onion_elfldr_elf}"
+		ONIONHEN_COMPANION_WEB_DIR="${PROJECT_ROOT}/web/companion"
 )
 onion_target_debug_define(${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME} PRIVATE

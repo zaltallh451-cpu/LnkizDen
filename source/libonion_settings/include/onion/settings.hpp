@@ -283,6 +283,10 @@ struct AppJailbreakAllowlist {
 };
 
 struct Settings {
+  // [companion]
+  // Expose the paired local-network dashboard only when explicitly enabled.
+  bool companion_dashboard_enabled = false;
+
   // [startup]
   // Page to open after LnkizDen finishes loading.
   int startup_open_after_load = kStartupOpenNone;

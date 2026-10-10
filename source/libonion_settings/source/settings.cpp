@@ -733,6 +733,9 @@ bool apply_parser(IniParser *parser, Settings *out) {
   }
 
   out->schema_version = version;
+  out->companion_dashboard_enabled = parse_bool(
+      ini_get(parser, "companion.dashboard_enabled"),
+      out->companion_dashboard_enabled);
   out->ui_lang =
       parse_language(ini_get(parser, "toolbox.language"), out->ui_lang);
   out->startup_open_after_load = parse_startup_open_after_load(
@@ -901,6 +904,12 @@ std::string settings_serialize(const Settings &in) {
   b += "# schema_version identifies this config format.\n";
   b += "# Available values: 1\n";
   b += "schema_version=" + std::to_string(kSettingsSchemaVersion) + "\n";
+  b += "\n";
+  b += "[companion]\n";
+  b += "# dashboard_enabled starts the paired local-network dashboard.\n";
+  b += "# Keep disabled unless you intend to pair a trusted device.\n";
+  b += "dashboard_enabled=" + bool_text(in.companion_dashboard_enabled) +
+       "\n";
   b += "\n";
   b += "[toolbox]\n";
   b += "# language controls the Toolbox UI and notification language.\n";
@@ -1097,8 +1106,18 @@ bool settings_load_backup_file(const char *path, Settings *out) {
 
   Settings parsed{};
   if (!settings_load_file(path, &parsed) ||
-      parsed.schema_version != kSettingsSchemaVersion ||
-      settings_serialize(parsed) != contents)
+      parsed.schema_version != kSettingsSchemaVersion)
+    return false;
+
+  std::string canonical = settings_serialize(parsed);
+  if (contents.find("dashboard_enabled=") == std::string::npos) {
+    const size_t section_start = canonical.find("[companion]\n");
+    const size_t next_section = canonical.find("[toolbox]\n", section_start);
+    if (section_start == std::string::npos || next_section == std::string::npos)
+      return false;
+    canonical.erase(section_start, next_section - section_start);
+  }
+  if (canonical != contents)
     return false;
 
   *out = parsed;

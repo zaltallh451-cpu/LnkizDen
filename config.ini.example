@@ -9,6 +9,11 @@
 # Available values: 1
 schema_version=1
 
+[companion]
+# dashboard_enabled starts the paired local-network dashboard.
+# Keep disabled unless you intend to pair a trusted device.
+dashboard_enabled=false
+
 [toolbox]
 # language controls the Toolbox UI and notification language.
 # Available values: system, zh-Hans, zh-Hant, en, ja, ko, fr, de, it, es,

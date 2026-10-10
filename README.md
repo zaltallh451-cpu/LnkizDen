@@ -103,6 +103,16 @@ Restore accepts only a complete canonical backup written by LnkizDen, rejecting
 truncated files and settings values that the parser would otherwise silently
 replace with defaults.
 
+### Companion dashboard
+
+The optional local-network dashboard is disabled by default. Its setup,
+pairing, network-security limits, and current feature coverage are documented
+in [docs/companion-dashboard.md](docs/companion-dashboard.md). After building
+the payload, use `scripts/stage-companion-release.ps1 -Destination <new-path>`
+to create a non-destructive USB staging directory. Copy that directory to a
+USB drive already formatted as exFAT; the script never formats media or
+overwrites an existing destination.
+
 ### Overlay presets
 
 The **Toolbox → Monitoring & Display → Game Overlay** controls include
