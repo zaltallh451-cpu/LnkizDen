@@ -26,6 +26,27 @@ static int test_default_zh(void) {
   TEST_ASSERT_TRUE(std::strcmp(tr("group.preferences"), "操作偏好") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("startup.open_after_load"),
                                "LnkizDen 加载后自动打开") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(tr("startup.safe_mode"),
+                               "安全模式（下次启动）") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       tr("startup.safe_mode.sub"),
+                       "下次启动时跳过 Kstuff 自动加载、用户 Payload 自动启动、外部插件和游戏绑定的 SPRX；ShellUI 仍会加载。") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       onion_notify_tr("notify.safe_mode.update_failed"),
+                       "无法更新安全模式设置；请检查文件权限。") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(tr("style.muse"), "Muse 柔色主题") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       tr("style.muse.sub"),
+                       "为 LnkizDen 游戏内监控条添加柔和的玫瑰与紫罗兰色调。PS5 系统菜单保持不变；重新打开游戏后生效。") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       onion_notify_tr("notify.muse.update_failed"),
+                       "无法更新 Muse 样式，请检查文件权限。") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       onion_notify_tr("notify.muse.enabled"),
+                       "Muse 已开启啦，LnkizDen 监控条换上了玫瑰与紫罗兰配色。PS5 系统菜单保持原样。") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       onion_notify_tr("notify.muse.disabled"),
+                       "已切回经典配色啦，LnkizDen 监控条恢复原来的颜色。") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("startup.home_menu"), "主菜单") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("log.level"), "日志输出等级") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("log.max_bytes"), "日志文件大小上限") == 0);
@@ -97,6 +118,27 @@ static int test_en(void) {
   TEST_ASSERT_TRUE(std::strcmp(tr("group.preferences"), "Preferences") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("startup.open_after_load"),
                                "Automatically open after LnkizDen loads") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(tr("startup.safe_mode"),
+                               "Safe mode (next boot)") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       tr("startup.safe_mode.sub"),
+                       "Next boot skips Kstuff autoload, user-payload autostart, external plugins and title-bound SPRX; ShellUI still loads.") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       onion_notify_tr("notify.safe_mode.update_failed"),
+                       "Could not update the safe-mode setting; check file permissions.") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(tr("style.muse"), "Muse palette") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       tr("style.muse.sub"),
+                       "A softer look, lovely: rose and violet accents for LnkizDen's in-game monitor. PS5 menus stay untouched; reopen a game to see it.") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       onion_notify_tr("notify.muse.update_failed"),
+                       "Oops, I couldn't update the Muse style; please check file permissions.") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       onion_notify_tr("notify.muse.enabled"),
+                       "Muse is on, lovely—your LnkizDen monitor is wearing its rose-and-violet look. The PS5 menus stay untouched.") == 0);
+  TEST_ASSERT_TRUE(std::strcmp(
+                       onion_notify_tr("notify.muse.disabled"),
+                       "Back to classic, lovely—your LnkizDen monitor has its original colors again.") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("startup.home_menu"), "Home Menu") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("log.level"), "Log output level") == 0);
   TEST_ASSERT_TRUE(std::strcmp(tr("log.max_bytes"), "Log file size limit") == 0);

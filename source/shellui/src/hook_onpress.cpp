@@ -128,8 +128,9 @@ int OnPress_Hook(MonoObject *Instance, MonoObject *element, MonoObject *e) {
   }
 
   LOG_DEBUG("[LM HOOK] OnPress_Hook: page=%u Id=%s Value=%s",
-              static_cast<unsigned>(g_ui.active_page), ctx.id.c_str(),
-              ctx.value.c_str());
+            static_cast<unsigned>(g_ui.active_page), ctx.id.c_str(),
+            toolbox::onpress_value_is_sensitive(ctx.id) ? "<redacted>"
+                                                        : ctx.value.c_str());
 
   const OnPressResult result = dispatch_toolbox_press(domain, ctx);
 

@@ -341,7 +341,8 @@ static int test_notify_rich_localizes_both_text_fields(void) {
   onion_notify_set_rich_send(capture_rich_notify);
   onion_notify_rich("notify.brand", "notify.boot.starting", "/icon.png",
                     "download", "43");
-  TEST_ASSERT_TRUE(strstr(g_rich_payload, "LnkizDen 正在启动...") != NULL);
+  TEST_ASSERT_TRUE(
+      strstr(g_rich_payload, "正在为您准备 LnkizDen，主人……") != NULL);
   onion_notify_set_language(ONION_NOTIFY_LANG_EN);
   return 0;
 }
@@ -417,7 +418,8 @@ static int test_notify_rich_skips_send_without_icon(void) {
 
   TEST_ASSERT_EQ_INT(0, g_rich_fail_calls);
   TEST_ASSERT_EQ_INT(1, g_plain_fallback_calls);
-  TEST_ASSERT_STREQ("LnkizDen is starting...", g_plain_fallback_message);
+  TEST_ASSERT_STREQ("Getting LnkizDen ready for you, Master...",
+                    g_plain_fallback_message);
 
   onion_notify_set_send(NULL);
   onion_notify_set_rich_send(NULL);
@@ -435,7 +437,7 @@ static int test_notify_try_rich_falls_back_on_empty_payload(void) {
 
   TEST_ASSERT_EQ_INT(0, g_rich_fail_calls);
   TEST_ASSERT_EQ_INT(1, g_plain_fallback_calls);
-  TEST_ASSERT_STREQ("Welcome to LnkizDen", g_plain_fallback_message);
+  TEST_ASSERT_STREQ("Welcome back, Master!", g_plain_fallback_message);
 
   onion_notify_set_send(NULL);
   onion_notify_set_rich_send(NULL);

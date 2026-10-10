@@ -31,6 +31,55 @@ OnPressResult onpress_kstuff_autoload(OnPressContext &ctx) {
   return OnPressResult::Handled;
 }
 
+static OnPressResult onpress_safe_mode_next_boot(OnPressContext &ctx) {
+  ctx.dirty = false;
+  if (value_as_int(ctx)) {
+    if (!touch_file("/data/LnkizDen/safe_mode")) {
+      LOG_ERROR("Unable to enable safe mode for next boot");
+      notify("notify.safe_mode.update_failed");
+      return OnPressResult::Consumed;
+    }
+    return OnPressResult::Handled;
+  }
+
+  constexpr const char *kMarkers[] = {
+      "/data/LnkizDen/safe_mode",
+      "/mnt/usb0/LnkizDen/safe_mode",
+  };
+  bool removed = true;
+  for (const char *path : kMarkers) {
+    if (unlink(path) != 0 && errno != ENOENT) {
+      LOG_ERROR("Unable to remove safe-mode marker %s: %s", path,
+                strerror(errno));
+      removed = false;
+    }
+  }
+  if (!removed) {
+    notify("notify.safe_mode.update_failed");
+    return OnPressResult::Consumed;
+  }
+  return OnPressResult::Handled;
+}
+
+static OnPressResult onpress_muse_style(OnPressContext &ctx) {
+  ctx.dirty = false;
+  constexpr const char *kMarker = "/data/LnkizDen/muse_style";
+  const bool enabled = value_as_int(ctx);
+  if (enabled) {
+    if (!touch_file(kMarker)) {
+      LOG_ERROR("Unable to enable Muse overlay style");
+      notify("notify.muse.update_failed");
+      return OnPressResult::Consumed;
+    }
+  } else if (unlink(kMarker) != 0 && errno != ENOENT) {
+    LOG_ERROR("Unable to disable Muse overlay style: %s", strerror(errno));
+    notify("notify.muse.update_failed");
+    return OnPressResult::Consumed;
+  }
+  notify(enabled ? "notify.muse.enabled" : "notify.muse.disabled");
+  return OnPressResult::Handled;
+}
+
 static OnPressResult id_download_cheats(OnPressContext &ctx) {
   ctx.dirty = false;
   std::string reply;
@@ -194,6 +243,8 @@ static OnPressResult id_presentation_card(OnPressContext &ctx) {
 }
 
 static const OnPressExactEntry kRootExact[] = {
+    {"id_safe_mode_next_boot", onpress_safe_mode_next_boot},
+    {"id_muse_style", onpress_muse_style},
     {"id_download_cheats", id_download_cheats},
     {"id_settings_backup_export", id_export_settings},
     {"id_settings_backup_import", id_import_settings},

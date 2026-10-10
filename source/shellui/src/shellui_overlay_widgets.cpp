@@ -2,14 +2,16 @@
  *
  * Horizontal monitor bar:
  *   font_size from overlay.font_size (14/18/24), font_style=1 (Bold), font_weight=900
- *   per-metric label colors; values white
- *   bg_color=000000B4 (~70% black Panel)
+ *   per-metric label colors and panel background from the selected palette
+ *   values white
  *   EnableThemedTextShadow, UI2.Panel Background*
  */
 
 #include "hooked_funcs.hpp"
 #include "external_symbols.hpp"
 #include "ipc.hpp"
+#include <onion/overlay_palette.hpp>
+#include <onion/platform.h>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -76,91 +78,79 @@ constexpr float kIpVal = 34.0f;
  * Per-group colors (RRGGBBAA → linear 0..1).
  * Labels use group color; all values use white.
  */
-/* color_cpu  = 66FF66FF — green */
-constexpr float kCpuR = 102.0f / 255.0f, kCpuG = 1.0f, kCpuB = 102.0f / 255.0f;
-/* color_gpu  = B366FFFF — purple */
-constexpr float kGpuR = 179.0f / 255.0f, kGpuG = 102.0f / 255.0f, kGpuB = 1.0f;
-/* color_mem  = FFB34DFF — orange */
-constexpr float kMemR = 1.0f, kMemG = 179.0f / 255.0f, kMemB = 77.0f / 255.0f;
-/* color_net  = 80B3FFFF — blue */
-constexpr float kNetR = 128.0f / 255.0f, kNetG = 179.0f / 255.0f, kNetB = 1.0f;
-/* color_fan  = 33E0FFFF — cyan */
-constexpr float kFanR = 51.0f / 255.0f, kFanG = 224.0f / 255.0f, kFanB = 1.0f;
-/* color_perf = FFE600FF — yellow (FPS) */
-constexpr float kFpsR = 1.0f, kFpsG = 230.0f / 255.0f, kFpsB = 0.0f;
-/* color_value = FFFFFFFF */
-constexpr float kValR = 1.0f, kValG = 1.0f, kValB = 1.0f;
-/* Separator pipe — soft white so it does not compete with values. */
-constexpr float kSepR = 0.75f, kSepG = 0.75f, kSepB = 0.75f;
-/* bg_color = 000000B4 → black @ ~70.6% */
-constexpr float kBgR = 0.0f, kBgG = 0.0f, kBgB = 0.0f, kBgA = 180.0f / 255.0f;
-constexpr float kA = 1.0f;
-
+/* Palette values are shared with host tests in onion/overlay_palette.hpp. */
 /* VerticalAlignment=0 with FitHeightToText=true for bar labels. */
 constexpr int kAlignLeft = 0;
 constexpr int kAlignTop = 0;
 constexpr float kInitialLabelWidth = 500.0f;
 
 void push_label(std::vector<WidgetConfig> &out, const char *id, float x, float y,
-                const char *text, float r, float g, float b) {
+                const char *text, const onion::OverlayColor &color) {
   /* bold field → HorizontalAlignment (left). Vertical center set at create. */
-  out.push_back({id, x, y, text, kAlignLeft, r, g, b, kA});
+  out.push_back(
+      {id, x, y, text, kAlignLeft, color.r, color.g, color.b, color.a});
 }
 
 void append_sep(std::vector<WidgetConfig> &out, const char *id, float x,
-                float y) {
-  push_label(out, id, x, y, "|", kSepR, kSepG, kSepB);
+                float y, const onion::OverlayPalette &palette) {
+  push_label(out, id, x, y, "|", palette.separator);
 }
 
-void append_fps(std::vector<WidgetConfig> &out) {
+void append_fps(std::vector<WidgetConfig> &out,
+                const onion::OverlayPalette &palette) {
   const float x = g_overlay_layout.overlay_fps_x;
   const float y = g_overlay_layout.overlay_fps_y;
-  push_label(out, "id_fps_label", x + kLbl, y, "FPS", kFpsR, kFpsG, kFpsB);
-  push_label(out, "id_fps_value", x + kVal0, y, "--", kValR, kValG, kValB);
-  append_sep(out, "id_fps_sep", x + kVal0 + 56.0f, y);
+  push_label(out, "id_fps_label", x + kLbl, y, "FPS", palette.fps);
+  push_label(out, "id_fps_value", x + kVal0, y, "--", palette.value);
+  append_sep(out, "id_fps_sep", x + kVal0 + 56.0f, y, palette);
 }
 
-void append_cpu(std::vector<WidgetConfig> &out) {
+void append_cpu(std::vector<WidgetConfig> &out,
+                const onion::OverlayPalette &palette) {
   const float x = g_overlay_layout.overlay_cpu_x;
   const float y = g_overlay_layout.overlay_cpu_y;
-  push_label(out, "id_cpu_label", x + kLbl, y, "CPU", kCpuR, kCpuG, kCpuB);
-  push_label(out, "id_cpu_temp_value", x + kVal0, y, "--C", kValR, kValG, kValB);
-  push_label(out, "id_cpu_usage_value", x + kVal1, y, "--%", kValR, kValG, kValB);
-  append_sep(out, "id_cpu_sep", x + kVal1 + 56.0f, y);
+  push_label(out, "id_cpu_label", x + kLbl, y, "CPU", palette.cpu);
+  push_label(out, "id_cpu_temp_value", x + kVal0, y, "--C", palette.value);
+  push_label(out, "id_cpu_usage_value", x + kVal1, y, "--%", palette.value);
+  append_sep(out, "id_cpu_sep", x + kVal1 + 56.0f, y, palette);
 }
 
-void append_gpu(std::vector<WidgetConfig> &out) {
+void append_gpu(std::vector<WidgetConfig> &out,
+                const onion::OverlayPalette &palette) {
   const float x = g_overlay_layout.overlay_gpu_x;
   const float y = g_overlay_layout.overlay_gpu_y;
-  push_label(out, "id_gpu_label", x + kLbl, y, "GPU", kGpuR, kGpuG, kGpuB);
-  push_label(out, "id_gpu_temp_value", x + kVal0, y, "--C", kValR, kValG, kValB);
-  push_label(out, "id_gpu_usage_value", x + kVal1, y, "--%", kValR, kValG, kValB);
-  append_sep(out, "id_gpu_sep", x + kVal1 + 56.0f, y);
+  push_label(out, "id_gpu_label", x + kLbl, y, "GPU", palette.gpu);
+  push_label(out, "id_gpu_temp_value", x + kVal0, y, "--C", palette.value);
+  push_label(out, "id_gpu_usage_value", x + kVal1, y, "--%", palette.value);
+  append_sep(out, "id_gpu_sep", x + kVal1 + 56.0f, y, palette);
 }
 
-void append_ram(std::vector<WidgetConfig> &out) {
+void append_ram(std::vector<WidgetConfig> &out,
+                const onion::OverlayPalette &palette) {
   const float x = g_overlay_layout.overlay_ram_x;
   const float y = g_overlay_layout.overlay_ram_y;
-  push_label(out, "id_ram_label", x + kLbl, y, "RAM", kMemR, kMemG, kMemB);
-  push_label(out, "id_ram_value", x + kVal0, y, "---- MB", kValR, kValG, kValB);
-  append_sep(out, "id_ram_sep", x + kVal0 + 80.0f, y);
+  push_label(out, "id_ram_label", x + kLbl, y, "RAM", palette.memory);
+  push_label(out, "id_ram_value", x + kVal0, y, "---- MB", palette.value);
+  append_sep(out, "id_ram_sep", x + kVal0 + 80.0f, y, palette);
 }
 
-void append_ip(std::vector<WidgetConfig> &out) {
+void append_ip(std::vector<WidgetConfig> &out,
+               const onion::OverlayPalette &palette) {
   const float x = g_overlay_layout.overlay_ip_x;
   const float y = g_overlay_layout.overlay_ip_y;
-  push_label(out, "id_ip_label", x + kLbl, y, "IP", kNetR, kNetG, kNetB);
-  push_label(out, "id_ip_value", x + kIpVal, y, "---.---.---.---", kValR, kValG,
-             kValB);
-  append_sep(out, "id_ip_sep", x + kIpVal + 160.0f, y);
+  push_label(out, "id_ip_label", x + kLbl, y, "IP", palette.network);
+  push_label(out, "id_ip_value", x + kIpVal, y, "---.---.---.---",
+             palette.value);
+  append_sep(out, "id_ip_sep", x + kIpVal + 160.0f, y, palette);
 }
 
-void append_fan(std::vector<WidgetConfig> &out) {
+void append_fan(std::vector<WidgetConfig> &out,
+                const onion::OverlayPalette &palette) {
   const float x = g_overlay_layout.overlay_fan_x;
   const float y = g_overlay_layout.overlay_fan_y;
-  push_label(out, "id_fan_label", x + kLbl, y, "FAN", kFanR, kFanG, kFanB);
-  push_label(out, "id_fan_value", x + kVal0, y, "--%", kValR, kValG, kValB);
-  append_sep(out, "id_fan_sep", x + kVal0 + 56.0f, y);
+  push_label(out, "id_fan_label", x + kLbl, y, "FAN", palette.fan);
+  push_label(out, "id_fan_value", x + kVal0, y, "--%", palette.value);
+  append_sep(out, "id_fan_sep", x + kVal0 + 56.0f, y, palette);
 }
 
 const std::vector<const char *> kAllOverlayNames = {
@@ -235,7 +225,7 @@ MonoObject *create_metric_cell(MonoObject *root, const char *label_name,
  *   X=0, Y=0 (or bottom), Width=RootWidget width,
  *   Height=font+6, bg_color=000000B4.
  */
-void ensure_bg_panel(MonoObject *root) {
+void ensure_bg_panel(MonoObject *root, const onion::OverlayPalette &palette) {
   if (!root)
     return;
 
@@ -279,7 +269,8 @@ void ensure_bg_panel(MonoObject *root) {
   Set_Property(panelClass, panel, "Width", g_overlay_layout.bar_w);
   Set_Property(panelClass, panel, "Height", g_overlay_layout.bar_h);
 
-  MonoObject *bg = CreateUIColor(kBgR, kBgG, kBgB, kBgA);
+  MonoObject *bg = CreateUIColor(palette.background.r, palette.background.g,
+                                 palette.background.b, palette.background.a);
   if (bg)
     Set_Property_Invoke(panelClass, panel, "BackgroundColor", bg);
 
@@ -347,35 +338,39 @@ bool CreateGameWidget(CreateWidget widget) {
   if (!bar_font)
     return false;
 
-  ensure_bg_panel(root);
+  const auto palette_id = if_exists("/data/LnkizDen/muse_style")
+                              ? onion::OverlayPaletteId::Muse
+                              : onion::OverlayPaletteId::Classic;
+  const auto &palette = onion::overlay_palette(palette_id);
+  ensure_bg_panel(root, palette);
 
   std::vector<WidgetConfig> configs;
   switch (widget) {
   case CREATE_GPU_OVERLAY:
-    append_gpu(configs);
+    append_gpu(configs, palette);
     break;
   case CREATE_CPU_OVERLAY:
-    append_cpu(configs);
+    append_cpu(configs, palette);
     break;
   case CREATE_RAM_OVERLAY:
-    append_ram(configs);
+    append_ram(configs, palette);
     break;
   case CREATE_IP_OVERLAY:
-    append_ip(configs);
+    append_ip(configs, palette);
     break;
   case CREATE_FAN_OVERLAY:
-    append_fan(configs);
+    append_fan(configs, palette);
     break;
   case CREATE_FPS_OVERLAY:
-    append_fps(configs);
+    append_fps(configs, palette);
     break;
   case CREATE_ALL_OVERLAYS:
-    append_fps(configs);
-    append_cpu(configs);
-    append_gpu(configs);
-    append_ram(configs);
-    append_ip(configs);
-    append_fan(configs);
+    append_fps(configs, palette);
+    append_cpu(configs, palette);
+    append_gpu(configs, palette);
+    append_ram(configs, palette);
+    append_ip(configs, palette);
+    append_fan(configs, palette);
     break;
   }
 

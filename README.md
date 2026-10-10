@@ -83,13 +83,22 @@ conflict; preserve both and resolve it manually before retrying.
 
 ### Safe mode
 
-Create an empty `/data/LnkizDen/safe_mode` file (or
-`/mnt/usb0/LnkizDen/safe_mode` on a mounted USB drive) before startup to skip
+Enable **Toolbox → Preferences → Safe mode (next boot)**, or create an empty
+`/data/LnkizDen/safe_mode` file (or
+`/mnt/usb0/LnkizDen/safe_mode` on a mounted USB drive) before startup, to skip
 kstuff autoload, user payload autostart, external plugin loading, and
-title-bound SPRX modules. Remove that file and cold-boot to return to normal
-startup. Core ShellUI integration, filesystem mounts, and update-partition
-handling still run; safe mode is a diagnostic mode, not a recovery environment
-or a guarantee against crashes or damage.
+title-bound SPRX modules. Turn the preference off (or remove the marker) and
+cold-boot to return to normal startup. Core ShellUI integration, filesystem
+mounts, and update-partition handling still run; safe mode is a diagnostic
+mode, not a recovery environment or a guarantee against crashes or damage.
+
+### Muse monitor palette
+
+Enable **Toolbox → Preferences → Muse palette** for a soft rose-and-violet
+version of the LnkizDen in-game monitor. The change is stored locally at
+`/data/LnkizDen/muse_style`; turn it off to restore the classic palette. Reopen
+the game to recreate the monitor with the selected colors. This styles only
+LnkizDen's overlay and does not modify Sony-owned PS5 menus.
 
 ### Settings backup
 
@@ -250,6 +259,16 @@ generic.
 Cheats load from disk. If a file changes, LnkizDen reloads it without restarting the whole stack.
 
 `DOWNLOAD_CHEATS` downloads a cheat catalog ZIP over HTTPS (GitHub or cnb.cool), extracts the `cheats/` tree, and copies `json/`, `shn/`, and `mc4/` files into this directory with their original names. `[cheats] mirror=auto` uses cnb.cool when the UI/system language is Simplified Chinese, otherwise GitHub.
+
+### Weather data
+
+The weather client uses Open-Meteo geocoding and forecast data. Attribute the
+provider as **Weather data by [Open-Meteo](https://open-meteo.com/)**. Its free
+API tier is for non-commercial use and is subject to rate limits. Data use is
+subject to CC BY 4.0 attribution requirements. Review the
+[terms](https://open-meteo.com/en/terms) before deployment, especially for
+commercial use. Weather lookups require a caller-supplied city; location is
+not inferred or persisted.
 
 <br>
 

@@ -151,9 +151,11 @@ Checked against call sites (not just the JSON files):
 - Four toolbox keys are unused leftovers from an older menu grouping:
   `group.lang`, `group.lang.sub`, `group.shortcuts`, `group.shortcuts.sub`.
   They are translated but not shown.
-- Welcome toast formats `notify.boot.made_by` with `ONIONHEN_VERSION`. The
-  author display name is part of each locale's translation (`麒麟` in
-  Chinese, `Kylin` elsewhere).
+- Startup first shows a localized “getting ready” toast. Once the daemon is
+  ready, its interactive welcome toast rotates among six localized greetings
+  using the current launch session. `notify.boot.made_by` still formats
+  `ONIONHEN_VERSION`, and the author display name remains part of each
+  locale's translation (`麒麟` in Chinese, `Kylin` elsewhere).
 - External plugins own their dynamic UI and service-specific translations;
   the LnkizDen catalog contains only host-owned strings.
 

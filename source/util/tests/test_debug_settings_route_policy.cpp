@@ -5,6 +5,7 @@
 #include "onion_cjson.hpp"
 #include <onion/debug_settings_route_policy.hpp>
 
+#include <cstdint>
 #include <string>
 
 using onion::debug_settings_route::DebugSettingsRoutePolicy;
@@ -559,7 +560,7 @@ static int test_welcome_toast_replaces_toolbox_uri(void) {
   TEST_ASSERT_TRUE(fields.valid);
   TEST_ASSERT_STREQ(uri, fields.action_url.c_str());
   TEST_ASSERT_STREQ(ONION_NOTIFY_ICON_PATH, fields.icon_url.c_str());
-  TEST_ASSERT_STREQ("Welcome to LnkizDen", fields.sub_message.c_str());
+  TEST_ASSERT_STREQ("Welcome back, Master!", fields.sub_message.c_str());
   const std::string expected =
       std::string(ONIONHEN_VERSION) + " made by Kylin/0xp0co";
   TEST_ASSERT_STREQ(expected.c_str(), fields.message.c_str());
@@ -576,13 +577,41 @@ static int test_welcome_toast_fallback_uri(void) {
   return 0;
 }
 
+static int test_welcome_toast_rotates_greetings(void) {
+  static const char *const expected[] = {
+      "Welcome back, Master!",
+      "All set, Master - your toolbox is ready.",
+      "LnkizDen is awake and ready for you.",
+      "Ready when you are, Master.",
+      "Your toolbox is waiting, Master.",
+      "Let's make this session lovely, Master!",
+  };
+  onion_notify_set_language(ONION_NOTIFY_LANG_EN);
+  constexpr std::uint64_t greeting_count =
+      sizeof(expected) / sizeof(expected[0]);
+  for (std::uint64_t seed = 0; seed < greeting_count; ++seed) {
+    const WelcomeFields fields = parse_welcome(
+        onion::daemon::make_welcome_toast_json(
+            "pssettings:play?function=debug_settings", seed));
+    TEST_ASSERT_TRUE(fields.valid);
+    TEST_ASSERT_STREQ(expected[seed], fields.sub_message.c_str());
+  }
+  const WelcomeFields wrapped = parse_welcome(
+      onion::daemon::make_welcome_toast_json(
+          "pssettings:play?function=debug_settings",
+          greeting_count));
+  TEST_ASSERT_TRUE(wrapped.valid);
+  TEST_ASSERT_STREQ(expected[0], wrapped.sub_message.c_str());
+  return 0;
+}
+
 static int test_welcome_toast_localizes_text(void) {
   onion_notify_set_language(ONION_NOTIFY_LANG_ZH_HANS);
   const WelcomeFields zh = parse_welcome(
       onion::daemon::make_welcome_toast_json(
           "pssettings:play?function=debug_settings"));
   TEST_ASSERT_TRUE(zh.valid);
-  TEST_ASSERT_STREQ("欢迎使用 LnkizDen", zh.sub_message.c_str());
+  TEST_ASSERT_STREQ("欢迎回来，主人！", zh.sub_message.c_str());
   TEST_ASSERT_STREQ("前往 LnkizDen 工具箱", zh.action_name.c_str());
   const std::string expected_zh =
       std::string(ONIONHEN_VERSION) + " · 作者：麒麟/0xp0co";
@@ -593,7 +622,7 @@ static int test_welcome_toast_localizes_text(void) {
       onion::daemon::make_welcome_toast_json(
           "pssettings:play?function=debug_settings"));
   TEST_ASSERT_TRUE(en.valid);
-  TEST_ASSERT_STREQ("Welcome to LnkizDen", en.sub_message.c_str());
+  TEST_ASSERT_STREQ("Welcome back, Master!", en.sub_message.c_str());
   TEST_ASSERT_STREQ("Go to the LnkizDen Toolbox", en.action_name.c_str());
   const std::string expected_en =
       std::string(ONIONHEN_VERSION) + " made by Kylin/0xp0co";
@@ -605,7 +634,7 @@ static int test_welcome_toast_localizes_text(void) {
       onion::daemon::make_welcome_toast_json(
           "pssettings:play?function=debug_settings"));
   TEST_ASSERT_TRUE(fr.valid);
-  TEST_ASSERT_STREQ("Bienvenue dans LnkizDen", fr.sub_message.c_str());
+  TEST_ASSERT_STREQ("Bon retour, Maître !", fr.sub_message.c_str());
   const std::string expected_fr =
       std::string(ONIONHEN_VERSION) + " · par Kylin/0xp0co";
   TEST_ASSERT_STREQ(expected_fr.c_str(), fr.message.c_str());
@@ -616,7 +645,7 @@ static int test_welcome_toast_localizes_text(void) {
       onion::daemon::make_welcome_toast_json(
           "pssettings:play?function=debug_settings"));
   TEST_ASSERT_TRUE(ko.valid);
-  TEST_ASSERT_STREQ("LnkizDen에 오신 것을 환영합니다", ko.sub_message.c_str());
+  TEST_ASSERT_STREQ("돌아오셨군요, 주인님!", ko.sub_message.c_str());
   const std::string expected_ko =
       std::string(ONIONHEN_VERSION) + " · 제작: Kylin/0xp0co";
   TEST_ASSERT_STREQ(expected_ko.c_str(), ko.message.c_str());
@@ -628,7 +657,7 @@ static int test_welcome_toast_localizes_text(void) {
       onion::daemon::make_welcome_toast_json(
           "pssettings:play?function=debug_settings"));
   TEST_ASSERT_TRUE(ja.valid);
-  TEST_ASSERT_STREQ("LnkizDen へようこそ", ja.sub_message.c_str());
+  TEST_ASSERT_STREQ("お帰りなさい、ご主人さま！", ja.sub_message.c_str());
   const std::string expected_ja =
       std::string(ONIONHEN_VERSION) + " · 制作：Kylin/0xp0co";
   TEST_ASSERT_STREQ(expected_ja.c_str(), ja.message.c_str());
@@ -730,6 +759,8 @@ extern "C" int test_debug_settings_route_policy_suite(void) {
                           test_welcome_toast_replaces_toolbox_uri);
   fails += onion_test_run("daemon.welcome_toast_fallback",
                           test_welcome_toast_fallback_uri);
+  fails += onion_test_run("daemon.welcome_toast_rotation",
+                          test_welcome_toast_rotates_greetings);
   fails += onion_test_run("daemon.welcome_toast_i18n",
                           test_welcome_toast_localizes_text);
   return fails;

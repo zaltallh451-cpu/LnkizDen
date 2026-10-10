@@ -16,6 +16,7 @@ along with this program; see the file COPYING. If not, see
 
 // Include files
 #include <cstdint>
+#include <ctime>
 #include <onion/ucred.h>
 #include <onion/net.h>
 #include <onion/proc_query.h>
@@ -94,7 +95,6 @@ extern "C" {
         OrbisNotificationRequest *req,
         size_t size, int32_t blocking);
     int sceUserServiceGetUserName(const int userId, char *userName, const size_t size);
-    uint64_t sceKernelGetProcessTime();
     int sceSystemServiceGetAppId(const char *title_id);
     int sceSystemServiceGetAppIdOfRunningBigApp(void);
     int scePadSetProcessPrivilege(int priv);
@@ -170,8 +170,14 @@ void start_worker_threads(pthread_t* app_jailbreak_thr, pthread_t* msg_thr) {
   pthread_create(&ctrl_thr, nullptr, control_tcp_loop, nullptr);
   pthread_detach(ctrl_thr);
   pthread_t supervisor_thr = nullptr;
-  pthread_create(&supervisor_thr, nullptr, runtime_supervisor_thread, nullptr);
-  pthread_detach(supervisor_thr);
+  const int supervisor_result = pthread_create(
+      &supervisor_thr, nullptr, runtime_supervisor_thread, nullptr);
+  if (supervisor_result == 0) {
+    pthread_detach(supervisor_thr);
+  } else {
+    LOG_ERROR("runtime supervisor thread creation failed (%d)",
+              supervisor_result);
+  }
   pthread_t fan_thr = nullptr;
   pthread_create(&fan_thr, nullptr, fan_maintenance_thread, nullptr);
   pthread_detach(fan_thr);
@@ -328,9 +334,13 @@ int main() {
 
   const onion::Settings boot_settings = g_settings.snapshot();
 
+  const std::uint64_t greeting_seed =
+      static_cast<std::uint64_t>(getpid()) +
+      static_cast<std::uint64_t>(std::time(nullptr));
   const std::string welcome_toast_json = onion::daemon::make_welcome_toast_json(
       debug_settings_route.toolbox_uri(
-          onion::debug_settings_route::UriKind::Simple));
+          onion::debug_settings_route::UriKind::Simple),
+      greeting_seed);
   onion_notify_try_rich(welcome_toast_json.c_str(), "notify.boot.welcome");
   if (boot_settings.show_boot_thanks) {
     onion_notify_debug(/*show_watermark=*/1, "notify.boot.thanks");

@@ -67,6 +67,12 @@ static int test_page_domain_matrix(void) {
   return 0;
 }
 
+static int test_weather_city_value_is_sensitive(void) {
+  TEST_ASSERT_TRUE(toolbox::onpress_value_is_sensitive("id_weather_city"));
+  TEST_ASSERT_TRUE(!toolbox::onpress_value_is_sensitive("id_muse_style"));
+  return 0;
+}
+
 extern "C" int test_onpress_policy_suite(void) {
   int fails = 0;
   fails += onion_test_run("onpress.stock_pkg_passthrough",
@@ -74,5 +80,7 @@ extern "C" int test_onpress_policy_suite(void) {
   fails += onion_test_run("onpress.ignore_unrelated_resource",
                           test_unrelated_resource_keeps_toolbox_ownership);
   fails += onion_test_run("onpress.page_domain_matrix", test_page_domain_matrix);
+  fails += onion_test_run("onpress.sensitive_value",
+                          test_weather_city_value_is_sensitive);
   return fails;
 }

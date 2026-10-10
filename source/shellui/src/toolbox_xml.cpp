@@ -843,6 +843,13 @@ void append_toolbox_preferences_group(ps5ui::Group& g) {
          toolbox_i18n::tr("startup.open_after_load.confirm_phrase"))
       .toggle("id_boot_thanks", toolbox_i18n::tr("boot.thanks"),
               toolbox_on("id_boot_thanks"), toolbox_i18n::tr("boot.thanks.sub"))
+      .toggle("id_safe_mode_next_boot",
+              toolbox_i18n::tr("startup.safe_mode"),
+              toolbox_on("id_safe_mode_next_boot"),
+              toolbox_i18n::tr("startup.safe_mode.sub"))
+      .toggle("id_muse_style", toolbox_i18n::tr("style.muse"),
+              toolbox_on("id_muse_style"),
+              toolbox_i18n::tr("style.muse.sub"))
       .list("id_ui_lang", toolbox_i18n::tr("lang.list"),
          [](ps5ui::ListBuilder& L) {
            L.item("id_ui_lang_system", toolbox_i18n::tr("lang.system"), "0")

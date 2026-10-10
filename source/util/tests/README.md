@@ -48,7 +48,7 @@ Binary: `source/util/build/host-tests/onion-host-tests`
 | `test_x64_relocator` | relocation-aware trampolines: RIP-relative memory/call, rel8/rel32 call/jmp/jcc, internal targets, safe rejection |
 | `test_reg_entity` | registry entity-id formula (account slots) |
 | `test_toolbox_helpers` | UI path rewrite + payload .elf basename filter |
-| `test_overlay_layout` | monitor-bar packing: top/bottom × left/right, hidden metrics, per-core width |
+| `test_overlay_layout` | monitor-bar packing and palette profiles: top/bottom × left/right, hidden metrics, per-core width |
 | `test_settings` | semantic schema serialize/round-trip, partial INI defaults |
 | `test_fps_formula` | broad PS4 BC classification: PPSA/PPSB/CUSA/PCAS/PCJS/PCKS/CUHJ prefix detection |
 | `test_ready` | ready markers, PID-bound process instances, path builder, name rejection, **fps_overlay / util_booted** flags, toolbox runtime-root marker |

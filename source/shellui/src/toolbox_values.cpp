@@ -56,6 +56,15 @@ const ExactValueEntry kExactValues[] = {
      +[]() -> std::string { return bool_str(g_settings.overlay_ram); }},
     {"id_plugin_kstuff_autoload",
      +[]() -> std::string { return bool_str(g_settings.kstuff_autoload); }},
+    {"id_safe_mode_next_boot",
+     +[]() -> std::string {
+       return bool_str(if_exists("/data/LnkizDen/safe_mode") ||
+                       if_exists("/mnt/usb0/LnkizDen/safe_mode"));
+     }},
+    {"id_muse_style",
+     +[]() -> std::string {
+       return bool_str(if_exists("/data/LnkizDen/muse_style"));
+     }},
     {"id_disp_titleids",
      +[]() -> std::string { return bool_str(g_settings.display_tids); }},
     {"id_enable_fan_speed",

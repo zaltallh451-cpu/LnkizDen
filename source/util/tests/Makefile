@@ -95,6 +95,7 @@ PROD_CXX_SRCS := \
 	$(UTIL_ROOT)/source/cheats/sync/cheat_sync_service.cpp \
 	$(UTIL_ROOT)/source/cheats/sync/http_transport_ps5.cpp \
 	$(UTIL_ROOT)/source/cheats/sync/zip_archive.cpp \
+	$(UTIL_ROOT)/source/weather/open_meteo.cpp \
 	$(THIRD_PARTY_ROOT)/cjson/cJSON.cpp \
 	$(REPO_ROOT)/source/libonion_settings/source/settings.cpp \
 	$(REPO_ROOT)/source/libonion_ipc/source/ipc_server.cpp \
@@ -140,6 +141,8 @@ TEST_CXX_SRCS := \
 	test_git_mirror_factory.cpp \
 	test_cheat_catalog.cpp \
 	test_cheat_sync.cpp \
+	test_http_transport.cpp \
+	test_weather.cpp \
 	test_settings.cpp \
 	test_msg_protocol.cpp \
 	test_app_jailbreak_policy.cpp \

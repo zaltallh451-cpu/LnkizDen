@@ -16,6 +16,10 @@ struct HttpRequest {
   const char *accept = nullptr;
   const char *user_agent = nullptr;
   const char *host_allow = nullptr;
+  // When set, host_allow must match the URL hostname exactly.
+  bool exact_host_match = false;
+  // Exact-host requests never follow redirects, regardless of this flag.
+  bool follow_redirects = true;
   const void *body = nullptr;
   size_t body_len = 0;
   int timeout_ms = 0;
@@ -27,6 +31,10 @@ struct HttpRequest {
   SyncCancelFn should_cancel = nullptr;
   void *cancel_user = nullptr;
 };
+
+inline bool http_request_follows_redirects(const HttpRequest &request) {
+  return request.follow_redirects && !request.exact_host_match;
+}
 
 /**
  * Strategy: HTTP(S) byte pipe for probes and git smart HTTP.

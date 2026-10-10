@@ -1,6 +1,7 @@
 #include "test_harness.h"
 
 #include "overlay_layout.hpp"
+#include <onion/overlay_palette.hpp>
 
 namespace {
 
@@ -277,6 +278,22 @@ int test_edge_and_align_mapping() {
   return 0;
 }
 
+int test_overlay_palette_profiles() {
+  const auto &classic =
+      onion::overlay_palette(onion::OverlayPaletteId::Classic);
+  const auto &muse = onion::overlay_palette(onion::OverlayPaletteId::Muse);
+  TEST_ASSERT_TRUE(classic.cpu.g > classic.cpu.r);
+  TEST_ASSERT_TRUE(muse.cpu.r > muse.cpu.g);
+  TEST_ASSERT_TRUE(muse.gpu.b > muse.gpu.r);
+  TEST_ASSERT_TRUE(classic.value.r == muse.value.r &&
+                   classic.value.g == muse.value.g &&
+                   classic.value.b == muse.value.b);
+  TEST_ASSERT_TRUE(muse.background.a > 0.0f && muse.background.a < 1.0f);
+  TEST_ASSERT_TRUE(onion::overlay_palette(static_cast<onion::OverlayPaletteId>(99))
+                       .cpu.g == classic.cpu.g);
+  return 0;
+}
+
 } // namespace
 
 extern "C" int test_overlay_layout_suite(void) {
@@ -313,6 +330,8 @@ extern "C" int test_overlay_layout_suite(void) {
                              test_pack_origin_left_center_right);
   failures += onion_test_run("overlay_layout.edge_align_mapping",
                              test_edge_and_align_mapping);
+  failures += onion_test_run("overlay_layout.palette_profiles",
+                             test_overlay_palette_profiles);
   failures += onion_test_run("overlay_layout.custom_order",
                              test_custom_order_packs_requested_sequence);
   failures += onion_test_run("overlay_layout.large_font",

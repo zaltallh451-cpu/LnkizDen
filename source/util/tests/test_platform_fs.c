@@ -76,6 +76,9 @@ static int test_write_file_atomic(void) {
 static int test_touch_and_exists(void) {
   char dir[64];
   char path[128];
+  int saved_stdin;
+  int restore_result;
+  bool touched;
   TEST_ASSERT_EQ_INT(0, make_temp_dir(dir, sizeof(dir)));
   snprintf(path, sizeof(path), "%s/flag", dir);
 
@@ -83,6 +86,21 @@ static int test_touch_and_exists(void) {
   TEST_ASSERT_TRUE(touch_file(path));
   TEST_ASSERT_TRUE(if_exists(path));
   TEST_ASSERT_TRUE(touch_file(path)); /* truncate ok */
+
+  saved_stdin = dup(STDIN_FILENO);
+  if (saved_stdin >= 0)
+    close(STDIN_FILENO);
+  touched = touch_file(path);
+  if (saved_stdin >= 0) {
+    restore_result = dup2(saved_stdin, STDIN_FILENO) == STDIN_FILENO ? 0 : -1;
+    close(saved_stdin);
+  } else {
+    restore_result = close(STDIN_FILENO);
+    if (restore_result == -1)
+      restore_result = 0;
+  }
+  TEST_ASSERT_EQ_INT(0, restore_result);
+  TEST_ASSERT_TRUE(touched);
 
   TEST_ASSERT_TRUE(!touch_file(NULL));
 

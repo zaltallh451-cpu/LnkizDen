@@ -73,6 +73,10 @@ constexpr bool toolbox_owns_settings_page(Page page) {
   return onpress_domain_for_page(page) != OnPressDomain::PassThrough;
 }
 
+constexpr bool onpress_value_is_sensitive(std::string_view id) {
+  return id == "id_weather_city";
+}
+
 inline bool is_settings_xml_resource(std::string_view resource) {
   constexpr std::string_view suffix = ".xml";
   return resource.size() >= suffix.size() &&

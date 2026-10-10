@@ -7,18 +7,27 @@
 
 #include "onion_cjson.hpp"
 
+#include <array>
+#include <cstdint>
 #include <cstdio>
 #include <string>
 #include <string_view>
 
 namespace onion::daemon {
 
-inline std::string make_welcome_toast_json(std::string_view toolbox_uri) {
+inline std::string make_welcome_toast_json(std::string_view toolbox_uri,
+                                           std::uint64_t greeting_seed = 0) {
+  static constexpr std::array<const char *, 6> kWelcomeKeys = {
+      "notify.boot.welcome",      "notify.boot.welcome.alt1",
+      "notify.boot.welcome.alt2", "notify.boot.welcome.alt3",
+      "notify.boot.welcome.alt4", "notify.boot.welcome.alt5",
+  };
   char message_buf[256];
   std::snprintf(message_buf, sizeof(message_buf),
                 onion_notify_tr("notify.boot.made_by"), ONIONHEN_VERSION);
   const std::string message = message_buf;
-  const char *sub_message = onion_notify_tr("notify.boot.welcome");
+  const char *sub_message =
+      onion_notify_tr(kWelcomeKeys[greeting_seed % kWelcomeKeys.size()]);
   const char *action_name = onion_notify_tr("notify.boot.goto_toolbox");
   const std::string_view action_url =
       toolbox_uri.empty()

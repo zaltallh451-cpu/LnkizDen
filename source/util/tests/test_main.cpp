@@ -16,6 +16,8 @@ extern "C" int test_x64_relocator_suite(void);
 extern "C" int test_git_mirror_factory_suite(void);
 extern "C" int test_cheat_catalog_suite(void);
 extern "C" int test_cheat_sync_suite(void);
+extern "C" int test_http_transport_suite(void);
+extern "C" int test_weather_suite(void);
 extern "C" int test_reg_entity_suite(void);
 extern "C" int test_settings_suite(void);
 extern "C" int test_ready_suite(void);
@@ -72,6 +74,8 @@ int main() {
   failures += test_git_mirror_factory_suite();
   failures += test_cheat_catalog_suite();
   failures += test_cheat_sync_suite();
+  failures += test_http_transport_suite();
+  failures += test_weather_suite();
   failures += test_reg_entity_suite();
   failures += test_settings_suite();
   failures += test_ready_suite();
